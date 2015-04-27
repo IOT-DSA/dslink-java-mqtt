@@ -4,6 +4,7 @@ import org.dsa.iot.dslink.node.Node;
 import org.dsa.iot.dslink.node.NodeBuilder;
 import org.dsa.iot.dslink.node.NodeManager;
 import org.dsa.iot.dslink.node.value.Value;
+import org.dsa.iot.dslink.util.Objects;
 import org.dsa.iot.dslink.util.StringUtils;
 import org.dsa.iot.dslink.util.URLInfo;
 import org.dsa.iot.mqtt.utils.InsecureSslSocketFactory;
@@ -12,6 +13,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Map;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Samuel Grenier
@@ -19,8 +22,9 @@ import java.util.Map;
 public class Mqtt implements MqttCallback {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Mqtt.class);
-
     private final Node parent;
+
+    private ScheduledFuture<?> future;
     private MqttClient client;
 
     public Mqtt(Node parent) throws MqttException {
@@ -32,6 +36,10 @@ public class Mqtt implements MqttCallback {
     }
 
     protected synchronized void connect(boolean checked) {
+        if (future != null) {
+            future.cancel(false);
+            future = null;
+        }
         if (client == null) {
             try {
                 String url = parent.getRoConfig("url").getString();
@@ -62,7 +70,8 @@ public class Mqtt implements MqttCallback {
                 if (checked) {
                     throw new RuntimeException(e);
                 }
-                // TODO: handle reconnection in a thread pool
+
+                scheduleReconnect();
             }
         }
     }
@@ -80,8 +89,11 @@ public class Mqtt implements MqttCallback {
     @Override
     public synchronized void connectionLost(Throwable throwable) {
         LOGGER.error("Lost connection to MQTT", throwable);
-        client = null;
-        // TODO: handle reconnection in a thread pool
+        if (future != null) {
+            future.cancel(false);
+            future = null;
+        }
+        scheduleReconnect();
     }
 
     @Override
@@ -113,6 +125,17 @@ public class Mqtt implements MqttCallback {
         return client != null;
     }
 
+    private synchronized void scheduleReconnect() {
+        LOGGER.warn("Reconnection to MQTT server scheduled");
+        client = null;
+        future = Objects.getDaemonThreadPool().schedule(new Runnable() {
+            @Override
+            public void run() {
+                connect(false);
+            }
+        }, 5, TimeUnit.SECONDS);
+    }
+
     public static void init(Node superRoot) {
         {
             NodeBuilder child = superRoot.createChild("addServer");
@@ -126,7 +149,6 @@ public class Mqtt implements MqttCallback {
                 for (Node child : children.values()) {
                     if (child.getAction() == null) {
                         try {
-                            child.clearChildren();
                             Mqtt mqtt = new Mqtt(child);
                             mqtt.connect(false);
                         } catch (Exception ignored) {
