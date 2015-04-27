@@ -103,6 +103,7 @@ public class Mqtt implements MqttCallback {
         if (split.length > 0) {
             String filtered = StringUtils.filterBannedChars(split[0]);
             Node node = parent.createChild(filtered).build();
+            node.setSerializable(false);
             for (int i = 1; i < split.length; i++) {
                 filtered = StringUtils.filterBannedChars(split[i]);
                 node = node.createChild(filtered).build();
