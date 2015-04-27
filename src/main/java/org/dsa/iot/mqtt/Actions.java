@@ -1,0 +1,85 @@
+package org.dsa.iot.mqtt;
+
+import org.dsa.iot.dslink.node.Node;
+import org.dsa.iot.dslink.node.NodeBuilder;
+import org.dsa.iot.dslink.node.Permission;
+import org.dsa.iot.dslink.node.actions.Action;
+import org.dsa.iot.dslink.node.actions.ActionResult;
+import org.dsa.iot.dslink.node.actions.Parameter;
+import org.dsa.iot.dslink.node.value.Value;
+import org.dsa.iot.dslink.node.value.ValueType;
+import org.eclipse.paho.client.mqttv3.MqttException;
+import org.eclipse.paho.client.mqttv3.MqttMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.vertx.java.core.Handler;
+
+/**
+ * @author Samuel Grenier
+ */
+public class Actions {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(Actions.class);
+
+    public static Action getAddServerAction(final Node node) {
+        final ValueType vt = ValueType.STRING;
+        Action a = new Action(Permission.READ, new Handler<ActionResult>() {
+            @Override
+            public void handle(ActionResult event) {
+                Value vName = event.getParameter("name", vt);
+                Value vUrl = event.getParameter("url", vt);
+                Value vClientId = event.getParameter("clientId", vt);
+                Value vUser = event.getParameter("username");
+                Value vPass = event.getParameter("password");
+
+                String name = vName.getString();
+                if (node.getChild(name) == null) {
+                    NodeBuilder child = node.createChild(name);
+                    if (vUser != null) {
+                        child.setRoConfig("user", vUser);
+                    }
+
+                    if (vPass != null) {
+                        child.setPassword(vPass.getString().toCharArray());
+                    }
+
+                    child.setRoConfig("url", vUrl);
+                    child.setRoConfig("clientId", vClientId);
+
+                    try {
+                        Mqtt mqtt = new Mqtt(child.build());
+                        mqtt.connect(true);
+                    } catch (MqttException e) {
+                        LOGGER.warn("Error adding server", e);
+                        node.removeChild(name);
+                    }
+                }
+            }
+        });
+        a.addParameter(new Parameter("name", vt));
+        a.addParameter(new Parameter("url", vt));
+        a.addParameter(new Parameter("username", vt));
+        a.addParameter(new Parameter("password", vt));
+        a.addParameter(new Parameter("clientId", vt));
+        return a;
+    }
+
+    public static Action getSubscribeAction(final Mqtt mqtt) {
+        Action a = new Action(Permission.READ, new Handler<ActionResult>() {
+            @Override
+            public void handle(ActionResult event) {
+                Value vTopic = event.getParameter("topic", ValueType.STRING);
+                Value vQos = event.getParameter("qos", ValueType.NUMBER);
+
+                String topic = vTopic.getString();
+                int qos = vQos.getNumber().intValue();
+                MqttMessage.validateQos(qos);
+
+                mqtt.subscribe(topic, qos);
+            }
+        });
+        a.addParameter(new Parameter("topic", ValueType.STRING));
+        a.addParameter(new Parameter("qos", ValueType.NUMBER, new Value(2)));
+        return a;
+    }
+}

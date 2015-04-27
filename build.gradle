@@ -1,0 +1,37 @@
+apply plugin: 'application'
+apply plugin: 'findbugs'
+apply plugin: 'java'
+
+mainClassName = 'org.dsa.iot.mqtt.Main'
+sourceCompatibility = 1.7
+targetCompatibility = 1.7
+version = '0.0.1-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+    maven {
+        url 'https://oss.sonatype.org/content/repositories/snapshots/'
+    }
+    maven {
+        url 'https://repo.eclipse.org/content/repositories/paho-releases/'
+    }
+}
+ 
+dependencies {
+    compile 'org.iot-dsa:dslink:0.3.0-SNAPSHOT'
+    compile 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.0.2'
+}
+
+run {
+    args System.getProperty("exec.args", "").split()
+    workingDir project.buildDir
+}
+
+tasks.withType(FindBugs) {
+    reports {
+        xml.enabled = false
+        html.enabled = true
+    }
+}
+
+applicationDistribution.from new File(project.projectDir, "/dslink.json")
