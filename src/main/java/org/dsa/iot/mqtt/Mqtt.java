@@ -13,6 +13,7 @@ import org.eclipse.paho.client.mqttv3.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.UnsupportedEncodingException;
 import java.util.Map;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -35,6 +36,10 @@ public class Mqtt implements MqttCallback {
 
         NodeBuilder child = parent.createChild("subscribe");
         child.setAction(Actions.getSubscribeAction(this));
+        child.build();
+
+        child = parent.createChild("publish");
+        child.setAction(Actions.getPublishAction(this));
         child.build();
 
         child = parent.createChild("data");
@@ -94,6 +99,24 @@ public class Mqtt implements MqttCallback {
                 }
 
                 scheduleReconnect();
+            }
+        }
+    }
+
+    public synchronized void publish(String topic,
+                                     String value,
+                                     int qos,
+                                     boolean retained) {
+        if (ensureConnected()) {
+            try {
+                byte[] payload = value.getBytes("UTF-8");
+                MqttMessage msg = new MqttMessage();
+                msg.setPayload(payload);
+                msg.setQos(qos);
+                msg.setRetained(retained);
+                client.publish(topic, msg);
+            } catch (MqttException | UnsupportedEncodingException e) {
+                LOGGER.error("Unable to publish to {}", topic, e);
             }
         }
     }

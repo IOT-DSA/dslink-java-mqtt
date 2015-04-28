@@ -64,6 +64,30 @@ public class Actions {
         return a;
     }
 
+    public static Action getPublishAction(final Mqtt mqtt) {
+        Action a = new Action(Permission.READ, new Handler<ActionResult>() {
+            @Override
+            public void handle(ActionResult event) {
+                Value vTopic = event.getParameter("topic", ValueType.STRING);
+                Value vValue = event.getParameter("value", ValueType.STRING);
+                Value vQos = event.getParameter("qos", ValueType.NUMBER);
+                Value vRetained = event.getParameter("retained", ValueType.BOOL);
+
+                String topic = vTopic.getString();
+                String value = vValue.getString();
+                int qos = vQos.getNumber().intValue();
+                boolean retained = vRetained.getBool();
+
+                mqtt.publish(topic, value, qos, retained);
+            }
+        });
+        a.addParameter(new Parameter("topic", ValueType.STRING));
+        a.addParameter(new Parameter("value", ValueType.STRING));
+        a.addParameter(new Parameter("qos", ValueType.NUMBER, new Value(2)));
+        a.addParameter(new Parameter("retained", ValueType.BOOL, new Value(true)));
+        return a;
+    }
+
     public static Action getSubscribeAction(final Mqtt mqtt) {
         Action a = new Action(Permission.READ, new Handler<ActionResult>() {
             @Override
