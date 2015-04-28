@@ -68,18 +68,31 @@ public class Actions {
         Action a = new Action(Permission.READ, new Handler<ActionResult>() {
             @Override
             public void handle(ActionResult event) {
+                Value vName = event.getParameter("name", ValueType.STRING);
                 Value vTopic = event.getParameter("topic", ValueType.STRING);
                 Value vQos = event.getParameter("qos", ValueType.NUMBER);
 
+                String name = vName.getString();
                 String topic = vTopic.getString();
                 int qos = vQos.getNumber().intValue();
                 MqttMessage.validateQos(qos);
 
-                mqtt.subscribe(topic, qos);
+                mqtt.subscribe(name, topic, qos);
             }
         });
+        a.addParameter(new Parameter("name", ValueType.STRING));
         a.addParameter(new Parameter("topic", ValueType.STRING));
         a.addParameter(new Parameter("qos", ValueType.NUMBER, new Value(2)));
         return a;
+    }
+
+    public static Action getUnsubscribeAction(final Mqtt mqtt,
+                                              final String name) {
+        return new Action(Permission.READ, new Handler<ActionResult>() {
+            @Override
+            public void handle(ActionResult event) {
+                mqtt.unsubscribe(name);
+            }
+        });
     }
 }
