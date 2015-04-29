@@ -167,6 +167,9 @@ public class Mqtt implements MqttCallback {
 
     @Override
     public synchronized void messageArrived(String s, MqttMessage msg) throws Exception {
+        if (s.contains("//")) {
+            return;
+        }
         String[] split = NodeManager.splitPath(s);
         if (split.length > 0) {
             String filtered = StringUtils.filterBannedChars(split[0]);
