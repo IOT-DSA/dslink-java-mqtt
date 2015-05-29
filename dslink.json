@@ -21,7 +21,7 @@
     },
     "nodes": {
       "type": "path",
-      "default": "nodes.json",
+      "default": "nodes.json"
     },
     "key": {
       "type": "path",
