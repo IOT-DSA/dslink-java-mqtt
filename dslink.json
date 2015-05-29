@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "description": "An implementation dslink of a mqtt protocol consumer",
   "license": "Apache",
-  "main": "bin/MQTT",
+  "main": "bin/dslink-java-mqtt",
   "author": {
     "name": "Samuel Grenier",
     "email": "samrg472@gmail.com"
