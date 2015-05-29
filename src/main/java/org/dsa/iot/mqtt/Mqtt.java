@@ -25,6 +25,7 @@ import java.util.concurrent.TimeUnit;
 public class Mqtt implements MqttCallback {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Mqtt.class);
+    private final Object clientLock = new Object();
     private final Node parent;
     private final Node data;
     private final Node subs;
@@ -50,12 +51,17 @@ public class Mqtt implements MqttCallback {
         subs = child.build();
     }
 
-    protected synchronized void connect(boolean checked) {
-        if (future != null) {
-            future.cancel(false);
-            future = null;
-        }
-        if (client == null) {
+    protected void connect(boolean checked) {
+        synchronized (clientLock) {
+            if (future != null) {
+                future.cancel(false);
+                future = null;
+            }
+
+            if (client != null) {
+                return;
+            }
+
             try {
                 String url = parent.getRoConfig("url").getString();
                 String id = parent.getRoConfig("clientId").getString();
@@ -101,10 +107,11 @@ public class Mqtt implements MqttCallback {
 
                 scheduleReconnect();
             }
+
         }
     }
 
-    public synchronized void publish(String topic,
+    public void publish(String topic,
                                      String value,
                                      int qos,
                                      boolean retained) {
@@ -115,17 +122,21 @@ public class Mqtt implements MqttCallback {
                 msg.setPayload(payload);
                 msg.setQos(qos);
                 msg.setRetained(retained);
-                client.publish(topic, msg);
+                synchronized (clientLock) {
+                    client.publish(topic, msg);
+                }
             } catch (MqttException | UnsupportedEncodingException e) {
                 LOGGER.error("Unable to publish to {}", topic, e);
             }
         }
     }
 
-    public synchronized void subscribe(String name, String topic, int qos) {
+    public void subscribe(String name, String topic, int qos) {
         if (ensureConnected()) {
             try {
-                client.subscribe(topic, qos);
+                synchronized (clientLock) {
+                    client.subscribe(topic, qos);
+                }
                 if (subs.getChild(name) == null) {
                     NodeBuilder builder = subs.createChild(name);
                     builder.setValueType(ValueType.STRING);
@@ -139,17 +150,20 @@ public class Mqtt implements MqttCallback {
                     builder.build();
                 }
             } catch (MqttException e) {
+                LOGGER.warn("Failed to subscribe", e);
                 throw new RuntimeException(e);
             }
         }
     }
 
-    public synchronized void unsubscribe(String name) {
+    public void unsubscribe(String name) {
         Node child = subs.removeChild(name);
         if (child != null) {
             String topic = child.getValue().getString();
             try {
-                client.unsubscribe(topic);
+                synchronized (clientLock) {
+                    client.unsubscribe(topic);
+                }
             } catch (MqttException ignored) {
             }
 
@@ -158,11 +172,13 @@ public class Mqtt implements MqttCallback {
     }
 
     @Override
-    public synchronized void connectionLost(Throwable throwable) {
+    public void connectionLost(Throwable throwable) {
         LOGGER.error("Lost connection to MQTT", throwable);
-        if (future != null) {
-            future.cancel(false);
-            future = null;
+        synchronized (clientLock) {
+            if (future != null) {
+                future.cancel(false);
+                future = null;
+            }
         }
         scheduleReconnect();
     }
@@ -193,22 +209,26 @@ public class Mqtt implements MqttCallback {
     public void deliveryComplete(IMqttDeliveryToken iMqttDeliveryToken) {
     }
 
-    private synchronized boolean ensureConnected() {
-        if (client == null) {
-            connect(false);
-        }
-        return client != null;
-    }
-
-    private synchronized void scheduleReconnect() {
-        LOGGER.warn("Reconnection to MQTT server scheduled");
-        client = null;
-        future = Objects.getDaemonThreadPool().schedule(new Runnable() {
-            @Override
-            public void run() {
+    private boolean ensureConnected() {
+        synchronized (clientLock) {
+            if (client == null) {
                 connect(false);
             }
-        }, 5, TimeUnit.SECONDS);
+            return client != null;
+        }
+    }
+
+    private void scheduleReconnect() {
+        LOGGER.warn("Reconnection to MQTT server scheduled");
+        synchronized (clientLock) {
+            client = null;
+            future = Objects.getDaemonThreadPool().schedule(new Runnable() {
+                @Override
+                public void run() {
+                    connect(false);
+                }
+            }, 5, TimeUnit.SECONDS);
+        }
     }
 
     public static void init(Node superRoot) {
