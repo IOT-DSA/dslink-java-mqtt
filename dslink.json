@@ -7,9 +7,7 @@
     "name": "Samuel Grenier",
     "email": "samrg472@gmail.com"
   },
-  "engines": {
-    "java": ">=1.7.0"
-  },
+  "main": "bin/dslink-java-mqtt",
   "repository": {
     "type": "git",
     "url": "https://github.com/IOT-DSA/dslink-java-mqtt"
@@ -18,20 +16,20 @@
     "url": "https://github.com/IOT-DSA/dslink-java-mqtt/issues"
   },
   "configs": {
+    "broker": {
+      "type": "url"
+    },
     "nodes": {
       "type": "path",
-      "value": "nodes.json",
-      "required": true
+      "default": "nodes.json"
     },
     "key": {
       "type": "path",
-      "value": ".key",
-      "required": true
+      "default": ".key"
     },
     "log": {
       "type": "enum",
-      "value": "info",
-      "required": true
+      "default": "info"
     }
   }
 }

@@ -5,6 +5,7 @@ import org.dsa.iot.dslink.node.NodeBuilder;
 import org.dsa.iot.dslink.node.NodeManager;
 import org.dsa.iot.dslink.node.actions.Action;
 import org.dsa.iot.dslink.node.value.Value;
+import org.dsa.iot.dslink.node.value.ValueType;
 import org.dsa.iot.dslink.util.Objects;
 import org.dsa.iot.dslink.util.StringUtils;
 import org.dsa.iot.dslink.util.URLInfo;
@@ -127,6 +128,7 @@ public class Mqtt implements MqttCallback {
                 client.subscribe(topic, qos);
                 if (subs.getChild(name) == null) {
                     NodeBuilder builder = subs.createChild(name);
+                    builder.setValueType(ValueType.STRING);
                     builder.setValue(new Value(topic));
                     builder.setRoConfig("qos", new Value(qos));
                     Node node = builder.build();
@@ -179,6 +181,7 @@ public class Mqtt implements MqttCallback {
                 filtered = StringUtils.filterBannedChars(split[i]);
                 node = node.createChild(filtered).build();
             }
+            node.setValueType(ValueType.STRING);
             node.setValue(new Value(msg.toString()));
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("Updating '{}' with '{}'", node.getPath(), msg);
@@ -216,26 +219,28 @@ public class Mqtt implements MqttCallback {
         }
 
         {
-            Map<String, Node> children = superRoot.getChildren();
-            if (children != null) {
-                for (Node child : children.values()) {
-                    if (child.getAction() == null) {
-                        try {
-                            Mqtt mqtt = new Mqtt(child);
-                            mqtt.connect(false);
+            Map<String, Node> rootChildren = superRoot.getChildren();
+            for (Node child : rootChildren.values()) {
+                if (child.getAction() != null) {
+                    continue;
+                }
+                try {
+                    Mqtt mqtt = new Mqtt(child);
 
-                            Map<String, Node> subs = mqtt.subs.getChildren();
-                            if (subs != null) {
-                                for (Node node : subs.values()) {
-                                    String name = node.getName();
-                                    NodeBuilder b = node.createChild("unsubscribe");
-                                    b.setAction(Actions.getUnsubscribeAction(mqtt, name));
-                                    b.build();
-                                }
-                            }
-                        } catch (Exception ignored) {
-                        }
+                    Map<String, Node> subs = mqtt.subs.getChildren();
+                    if (subs == null) {
+                        continue;
                     }
+                    for (Node node : subs.values()) {
+                        String name = node.getName();
+                        NodeBuilder b = node.createChild("unsubscribe");
+                        b.setAction(Actions.getUnsubscribeAction(mqtt, name));
+                        b.build();
+                    }
+
+                    mqtt.connect(false);
+                } catch (Exception e) {
+                    LOGGER.warn("", e);
                 }
             }
         }

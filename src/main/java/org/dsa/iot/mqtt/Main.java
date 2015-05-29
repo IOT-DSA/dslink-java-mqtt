@@ -15,8 +15,13 @@ public class Main extends DSLinkHandler {
 
     @Override
     public void onResponderInitialized(DSLink link) {
-        LOGGER.info("Connected");
         Mqtt.init(link.getNodeManager().getNode("/").getNode());
+        LOGGER.info("Initialized");
+    }
+
+    @Override
+    public void onResponderConnected(DSLink link) {
+        LOGGER.info("Connected");
     }
 
     public static void main(String[] args) {
