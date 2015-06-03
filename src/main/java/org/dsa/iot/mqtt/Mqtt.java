@@ -11,6 +11,7 @@ import org.dsa.iot.dslink.util.StringUtils;
 import org.dsa.iot.dslink.util.URLInfo;
 import org.dsa.iot.mqtt.utils.InsecureSslSocketFactory;
 import org.eclipse.paho.client.mqttv3.*;
+import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,7 +66,7 @@ public class Mqtt implements MqttCallback {
             try {
                 String url = parent.getRoConfig("url").getString();
                 String id = parent.getRoConfig("clientId").getString();
-                this.client = new MqttClient(url, id);
+                client = new MqttClient(url, id, new MemoryPersistence());
 
                 MqttConnectOptions opts = new MqttConnectOptions();
 
