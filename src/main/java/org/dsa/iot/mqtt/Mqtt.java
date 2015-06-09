@@ -37,7 +37,11 @@ public class Mqtt implements MqttCallback {
     public Mqtt(Node parent) throws MqttException {
         this.parent = parent;
 
-        NodeBuilder child = parent.createChild("subscribe");
+        NodeBuilder child = parent.createChild("delete");
+        child.setAction(Actions.getRemoveServerAction(this, parent));
+        child.build();
+
+        child = parent.createChild("subscribe");
         child.setAction(Actions.getSubscribeAction(this));
         child.build();
 
@@ -50,6 +54,22 @@ public class Mqtt implements MqttCallback {
 
         child = parent.createChild("subscriptions");
         subs = child.build();
+    }
+
+    protected void disconnect() {
+        synchronized (clientLock) {
+            if (future != null) {
+                future.cancel(false);
+                future = null;
+            }
+
+            if (client != null) {
+                try {
+                    client.close();
+                } catch (MqttException ignored) {
+                }
+            }
+        }
     }
 
     protected void connect(boolean checked) {
@@ -108,7 +128,6 @@ public class Mqtt implements MqttCallback {
 
                 scheduleReconnect();
             }
-
         }
     }
 

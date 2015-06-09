@@ -64,6 +64,21 @@ public class Actions {
         return a;
     }
 
+    public static Action getRemoveServerAction(final Mqtt mqtt,
+                                               final Node parent) {
+        return new Action(Permission.READ, new Handler<ActionResult>() {
+            @Override
+            public void handle(ActionResult event) {
+                parent.getParent().removeChild(parent);
+
+                try {
+                    mqtt.disconnect();
+                } catch (Exception ignored) {
+                }
+            }
+        });
+    }
+
     public static Action getPublishAction(final Mqtt mqtt) {
         Action a = new Action(Permission.READ, new Handler<ActionResult>() {
             @Override
