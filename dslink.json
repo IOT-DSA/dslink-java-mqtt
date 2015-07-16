@@ -1,5 +1,5 @@
 {
-  "name": "mqtt",
+  "name": "dslink-java-mqtt",
   "version": "0.0.1",
   "description": "An implementation dslink of a mqtt protocol consumer",
   "license": "Apache",
