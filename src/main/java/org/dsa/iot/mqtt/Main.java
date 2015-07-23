@@ -14,6 +14,11 @@ public class Main extends DSLinkHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
 
     @Override
+    public boolean isResponder() {
+        return true;
+    }
+
+    @Override
     public void onResponderInitialized(DSLink link) {
         Mqtt.init(link.getNodeManager().getNode("/").getNode());
         LOGGER.info("Initialized");
@@ -25,6 +30,6 @@ public class Main extends DSLinkHandler {
     }
 
     public static void main(String[] args) {
-        DSLinkFactory.startResponder("mqtt", args, new Main());
+        DSLinkFactory.start(args, new Main());
     }
 }

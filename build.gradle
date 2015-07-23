@@ -18,7 +18,7 @@ repositories {
 }
  
 dependencies {
-    compile 'org.iot-dsa:dslink:0.3.0'
+    compile 'org.iot-dsa:dslink:0.6.0'
     compile 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.0.2'
 
     testCompile 'junit:junit:4.12'
