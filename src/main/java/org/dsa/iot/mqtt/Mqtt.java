@@ -41,10 +41,6 @@ public class Mqtt implements MqttCallback {
         child.setAction(Actions.getRemoveServerAction(this, parent));
         child.build();
 
-        child = parent.createChild("subscribe");
-        child.setAction(Actions.getSubscribeAction(this));
-        child.build();
-
         child = parent.createChild("publish");
         child.setAction(Actions.getPublishAction(this));
         child.build();
@@ -54,6 +50,10 @@ public class Mqtt implements MqttCallback {
 
         child = parent.createChild("subscriptions");
         subs = child.build();
+
+        child = subs.createChild("subscribe");
+        child.setAction(Actions.getSubscribeAction(this));
+        child.build();
     }
 
     protected void disconnect() {

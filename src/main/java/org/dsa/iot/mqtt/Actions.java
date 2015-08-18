@@ -57,10 +57,17 @@ public class Actions {
             }
         });
         a.addParameter(new Parameter("name", vt));
-        a.addParameter(new Parameter("url", vt));
+        {
+            Parameter p = new Parameter("url", vt);
+            p.setPlaceHolder("tcp://test.mosquitto.org/");
+
+            String desc = "URL schemes must either: tcp, ssl, or local";
+            p.setDescription(desc);
+            a.addParameter(p);
+        }
         a.addParameter(new Parameter("username", vt));
         a.addParameter(new Parameter("password", vt));
-        a.addParameter(new Parameter("clientId", vt));
+        a.addParameter(new Parameter("clientId", vt).setPlaceHolder("dsa1234"));
         return a;
     }
 
@@ -98,7 +105,17 @@ public class Actions {
         });
         a.addParameter(new Parameter("topic", ValueType.STRING));
         a.addParameter(new Parameter("value", ValueType.STRING));
-        a.addParameter(new Parameter("qos", ValueType.NUMBER, new Value(2)));
+        {
+            Parameter p = new Parameter("qos", ValueType.NUMBER);
+            p.setDefaultValue(new Value(2));
+
+            String desc = "QoS ranges from 0-2";
+            desc += "\nQoS 0 delivers the message but is not acknowledged by the network";
+            desc += "\nQos 1 guarantees the network has the message but can be duplicated";
+            desc += "\nQos 2 guarantees the network has the message and receives it only once";
+            p.setDescription(desc);
+            a.addParameter(new Parameter("qos", ValueType.NUMBER, new Value(2)));
+        }
         a.addParameter(new Parameter("retained", ValueType.BOOL, new Value(true)));
         return a;
     }
