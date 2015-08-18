@@ -13,13 +13,14 @@ repositories {
         url 'https://oss.sonatype.org/content/repositories/snapshots/'
     }
     maven {
-        url 'https://repo.eclipse.org/content/repositories/paho-releases/'
+        url 'https://repo.eclipse.org/content/repositories/paho-snapshots/'
     }
 }
  
 dependencies {
-    compile 'org.iot-dsa:dslink:0.8.0'
-    compile 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.0.2'
+    compile 'org.iot-dsa:dslink:0.9.0-SNAPSHOT'
+    compile 'org.iot-dsa:commons:0.9.0-SNAPSHOT'
+    compile 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.0.3-SNAPSHOT'
 
     testCompile 'junit:junit:4.12'
 }

@@ -48,7 +48,7 @@ public class Actions {
 
                     try {
                         Mqtt mqtt = new Mqtt(child.build());
-                        mqtt.connect(true);
+                        mqtt.init();
                     } catch (MqttException e) {
                         LOGGER.warn("Error adding server", e);
                         node.removeChild(name);

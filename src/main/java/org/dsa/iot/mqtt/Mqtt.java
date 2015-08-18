@@ -1,5 +1,6 @@
 package org.dsa.iot.mqtt;
 
+import org.dsa.iot.commons.GuaranteedReceiver;
 import org.dsa.iot.dslink.node.Node;
 import org.dsa.iot.dslink.node.NodeBuilder;
 import org.dsa.iot.dslink.node.NodeManager;
@@ -7,18 +8,15 @@ import org.dsa.iot.dslink.node.actions.Action;
 import org.dsa.iot.dslink.node.value.Value;
 import org.dsa.iot.dslink.node.value.ValueType;
 import org.dsa.iot.dslink.util.Objects;
-import org.dsa.iot.dslink.util.StringUtils;
-import org.dsa.iot.dslink.util.URLInfo;
-import org.dsa.iot.mqtt.utils.InsecureSslSocketFactory;
+import org.dsa.iot.mqtt.utils.ClientReceiver;
 import org.eclipse.paho.client.mqttv3.*;
-import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.vertx.java.core.Handler;
 
 import java.io.UnsupportedEncodingException;
 import java.util.Map;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 /**
  * @author Samuel Grenier
@@ -26,22 +24,26 @@ import java.util.concurrent.TimeUnit;
 public class Mqtt implements MqttCallback {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Mqtt.class);
-    private final Object clientLock = new Object();
     private final Node parent;
-    private final Node data;
-    private final Node subs;
+    private Node data;
+    private Node subs;
 
-    private ScheduledFuture<?> future;
-    private MqttClient client;
+    private GuaranteedReceiver<MqttClient> clientReceiver;
 
     public Mqtt(Node parent) throws MqttException {
         this.parent = parent;
+        parent.setMetaData(this);
+    }
+
+    public void init() {
+        clientReceiver = new ClientReceiver(parent, this);
 
         NodeBuilder child = parent.createChild("delete");
         child.setAction(Actions.getRemoveServerAction(this, parent));
         child.build();
 
         child = parent.createChild("publish");
+        child.setDisplayName("Publish");
         child.setAction(Actions.getPublishAction(this));
         child.setSerializable(false);
         child.build();
@@ -58,235 +60,194 @@ public class Mqtt implements MqttCallback {
         child.build();
     }
 
-    protected void disconnect() {
-        synchronized (clientLock) {
-            if (future != null) {
-                future.cancel(false);
-                future = null;
-            }
+    protected void get(Handler<MqttClient> onClientReceived) {
+        clientReceiver.get(onClientReceived, false);
+    }
 
-            if (client != null) {
-                try {
-                    client.close();
-                } catch (MqttException ignored) {
+    protected void disconnect() {
+        clientReceiver.shutdown();
+    }
+
+    protected void restoreSubscriptions() {
+        Map<String, Node> children = subs.getChildren();
+        if (children != null) {
+            for (Map.Entry<String, Node> entry : children.entrySet()) {
+                String name = entry.getKey();
+                Node child = entry.getValue();
+                if (child.getAction() != null) {
+                    continue;
                 }
+                LOGGER.info("Restoring subscription for '{}'", name);
+
+                String topic = child.getValue().getString();
+                int qos = child.getRoConfig("qos").getNumber().intValue();
+                subscribe(name, topic, qos);
             }
         }
     }
 
-    protected void connect(boolean checked) {
-        synchronized (clientLock) {
-            if (future != null) {
-                future.cancel(false);
-                future = null;
-            }
-
-            if (client != null) {
-                return;
-            }
-
-            try {
-                String url = parent.getRoConfig("url").getString();
-                String id = parent.getRoConfig("clientId").getString();
-                client = new MqttClient(url, id, new MemoryPersistence());
-
-                MqttConnectOptions opts = new MqttConnectOptions();
-
-                URLInfo info = URLInfo.parse(url);
-                if ("ssl".equals(info.protocol)) {
-                    opts.setSocketFactory(new InsecureSslSocketFactory());
-                }
-
-                Value vUser = parent.getRoConfig("user");
-                if (vUser != null) {
-                    opts.setUserName(vUser.getString());
-                }
-
-                char[] pass = parent.getPassword();
-                if (pass != null) {
-                    opts.setPassword(pass);
-                }
-
-                client.setCallback(this);
-                client.connect(opts);
-                LOGGER.info("Opened connection to MQTT at {}", url);
-
-                Map<String, Node> children = subs.getChildren();
-                if (children != null) {
-                    for (Map.Entry<String, Node> entry : children.entrySet()) {
-                        String name = entry.getKey();
-                        Node child = entry.getValue();
-                        if (child.getAction() != null) {
-                            continue;
-                        }
-                        LOGGER.info("Restoring subscription for '{}'", name);
-
-                        String topic = child.getValue().getString();
-                        int qos = child.getRoConfig("qos").getNumber().intValue();
-                        subscribe(name, topic, qos);
+    public void publish(final String topic,
+                        String value,
+                        int qos,
+                        boolean retained) {
+        try {
+            byte[] payload = value.getBytes("UTF-8");
+            final MqttMessage msg = new MqttMessage();
+            msg.setPayload(payload);
+            msg.setQos(qos);
+            msg.setRetained(retained);
+            get(new Handler<MqttClient>() {
+                @Override
+                public void handle(MqttClient event) {
+                    try {
+                        event.publish(topic, msg);
+                    } catch (MqttException e) {
+                        throw new RuntimeException(e);
                     }
                 }
-            } catch (MqttException e) {
-                if (checked) {
+            });
+        } catch (UnsupportedEncodingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void subscribe(final String name,
+                          final String topic,
+                          final int qos) {
+        get(new Handler<MqttClient>() {
+            @Override
+            public void handle(MqttClient event) {
+                try {
+                    event.subscribe(topic, qos);
+                    if (subs.getChild(name) == null) {
+                        NodeBuilder builder = subs.createChild(name);
+                        builder.setValueType(ValueType.STRING);
+                        builder.setValue(new Value(topic));
+                        builder.setRoConfig("qos", new Value(qos));
+                        Node node = builder.build();
+
+                        builder = node.createChild("unsubscribe");
+                        builder.setDisplayName("Unsubscribe");
+                        builder.setSerializable(false);
+                        Mqtt mqtt = Mqtt.this;
+                        Action act = Actions.getUnsubscribeAction(mqtt, name);
+                        builder.setAction(act);
+                        builder.build();
+                    }
+                } catch (MqttException e) {
                     throw new RuntimeException(e);
                 }
-
-                scheduleReconnect();
             }
-        }
-    }
-
-    public void publish(String topic,
-                                     String value,
-                                     int qos,
-                                     boolean retained) {
-        if (ensureConnected()) {
-            try {
-                byte[] payload = value.getBytes("UTF-8");
-                MqttMessage msg = new MqttMessage();
-                msg.setPayload(payload);
-                msg.setQos(qos);
-                msg.setRetained(retained);
-                synchronized (clientLock) {
-                    client.publish(topic, msg);
-                }
-            } catch (MqttException | UnsupportedEncodingException e) {
-                LOGGER.error("Unable to publish to {}", topic, e);
-            }
-        }
-    }
-
-    public void subscribe(String name, String topic, int qos) {
-        if (ensureConnected()) {
-            try {
-                synchronized (clientLock) {
-                    client.subscribe(topic, qos);
-                }
-                if (subs.getChild(name) == null) {
-                    NodeBuilder builder = subs.createChild(name);
-                    builder.setValueType(ValueType.STRING);
-                    builder.setValue(new Value(topic));
-                    builder.setRoConfig("qos", new Value(qos));
-                    Node node = builder.build();
-
-                    builder = node.createChild("unsubscribe");
-                    Action act = Actions.getUnsubscribeAction(this, name);
-                    builder.setAction(act);
-                    builder.build();
-                }
-            } catch (MqttException e) {
-                LOGGER.warn("Failed to subscribe", e);
-                throw new RuntimeException(e);
-            }
-        }
+        });
     }
 
     public void unsubscribe(String name) {
         Node child = subs.removeChild(name);
-        if (child != null) {
-            String topic = child.getValue().getString();
-            try {
-                synchronized (clientLock) {
-                    client.unsubscribe(topic);
-                }
-            } catch (MqttException ignored) {
-            }
-
-            destroyTree(topic, data);
+        if (child == null) {
+            return;
         }
+        final String topic = child.getValue().getString();
+        get(new Handler<MqttClient>() {
+            @Override
+            public void handle(MqttClient event) {
+                try {
+                    event.unsubscribe(topic);
+                } catch (MqttException e) {
+                    throw new RuntimeException(e);
+                } finally {
+                    destroyTree(topic, data);
+                }
+            }
+        });
     }
 
     @Override
     public void connectionLost(Throwable throwable) {
         LOGGER.error("Lost connection to MQTT", throwable);
-        synchronized (clientLock) {
-            if (future != null) {
-                future.cancel(false);
-                future = null;
-            }
-        }
-        scheduleReconnect();
+        restoreSubscriptions();
     }
 
     @Override
-    public synchronized void messageArrived(String s, MqttMessage msg) throws Exception {
+    public synchronized void messageArrived(final String s,
+                                            final MqttMessage msg)
+                                                    throws Exception {
         if (s.contains("//")) {
             return;
         }
-        String[] split = NodeManager.splitPath(s);
-        if (split.length > 0) {
-            String filtered = StringUtils.filterBannedChars(split[0]);
-            Node node = data.createChild(filtered).build();
-            node.setSerializable(false);
-            for (int i = 1; i < split.length; i++) {
-                filtered = StringUtils.filterBannedChars(split[i]);
-                node = node.createChild(filtered).build();
-            }
-            node.setValueType(ValueType.STRING);
-            node.setValue(new Value(msg.toString()));
-            if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug("Updating '{}' with '{}'", node.getPath(), msg);
-            }
+        final String[] split = NodeManager.splitPath(s);
+        if (split.length <= 0) {
+            return;
         }
+        ScheduledThreadPoolExecutor stpe = Objects.getDaemonThreadPool();
+        stpe.execute(new Runnable() {
+            @Override
+            public void run() {
+                String name = split[0];
+                NodeBuilder b = data.createChild(name);
+                b.setSerializable(false);
+                Node node = b.build();
+                node.setSerializable(false);
+                for (int i = 1; i < split.length; i++) {
+                    name = split[i];
+                    b = node.createChild(name);
+                    b.setSerializable(false);
+                    node = b.build();
+                }
+                node.setValueType(ValueType.STRING);
+                node.setValue(new Value(msg.toString()));
+                if (LOGGER.isTraceEnabled()) {
+                    LOGGER.trace("Updating '{}' with '{}'", node.getPath(), msg);
+                }
+            }
+        });
     }
 
     @Override
     public void deliveryComplete(IMqttDeliveryToken iMqttDeliveryToken) {
     }
 
-    private boolean ensureConnected() {
-        synchronized (clientLock) {
-            if (client == null) {
-                connect(false);
-            }
-            return client != null;
-        }
-    }
-
-    private void scheduleReconnect() {
-        LOGGER.warn("Reconnection to MQTT server scheduled");
-        synchronized (clientLock) {
-            client = null;
-            future = Objects.getDaemonThreadPool().schedule(new Runnable() {
-                @Override
-                public void run() {
-                    connect(false);
-                }
-            }, 5, TimeUnit.SECONDS);
-        }
-    }
-
     public static void init(Node superRoot) {
         {
             NodeBuilder child = superRoot.createChild("addServer");
             child.setAction(Actions.getAddServerAction(superRoot));
+            child.setSerializable(false);
+            child.setDisplayName("Add Server");
             child.build();
         }
 
         {
             Map<String, Node> rootChildren = superRoot.getChildren();
-            for (Node child : rootChildren.values()) {
+            ScheduledThreadPoolExecutor stpe = Objects.getDaemonThreadPool();
+            for (final Node child : rootChildren.values()) {
                 if (child.getAction() != null) {
                     continue;
                 }
-                try {
-                    Mqtt mqtt = new Mqtt(child);
+                stpe.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            Mqtt mqtt = new Mqtt(child);
+                            mqtt.init();
 
-                    Map<String, Node> subs = mqtt.subs.getChildren();
-                    if (subs == null) {
-                        continue;
+                            Map<String, Node> subs = mqtt.subs.getChildren();
+                            if (subs == null) {
+                                return;
+                            }
+                            mqtt.restoreSubscriptions();
+                            for (Node node : subs.values()) {
+                                String name = node.getName();
+                                NodeBuilder b = node.createChild("unsubscribe");
+                                Action a = Actions.getUnsubscribeAction(mqtt, name);
+                                b.setAction(a);
+                                b.setSerializable(false);
+                                b.setDisplayName("Unsubscribe");
+                                b.build();
+                            }
+                        } catch (Exception e) {
+                            LOGGER.warn("", e);
+                        }
                     }
-                    for (Node node : subs.values()) {
-                        String name = node.getName();
-                        NodeBuilder b = node.createChild("unsubscribe");
-                        b.setAction(Actions.getUnsubscribeAction(mqtt, name));
-                        b.build();
-                    }
-
-                    mqtt.connect(false);
-                } catch (Exception e) {
-                    LOGGER.warn("", e);
-                }
+                });
             }
         }
     }
@@ -320,13 +281,11 @@ public class Mqtt implements MqttCallback {
                     }
                     break;
                 } else if (i + 1 >= split.length) {
-                    String filtered = StringUtils.filterBannedChars(topic);
-                    node = node.removeChild(filtered);
+                    node = node.removeChild(topic);
                     removeParent(node);
                     break;
                 } else {
-                    String filtered = StringUtils.filterBannedChars(topic);
-                    node = node.getChild(filtered);
+                    node = node.getChild(topic);
                     if (node == null) {
                         break;
                     }
