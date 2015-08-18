@@ -43,6 +43,7 @@ public class Mqtt implements MqttCallback {
 
         child = parent.createChild("publish");
         child.setAction(Actions.getPublishAction(this));
+        child.setSerializable(false);
         child.build();
 
         child = parent.createChild("data");
@@ -53,6 +54,7 @@ public class Mqtt implements MqttCallback {
 
         child = subs.createChild("subscribe");
         child.setAction(Actions.getSubscribeAction(this));
+        child.setSerializable(false);
         child.build();
     }
 
@@ -114,6 +116,9 @@ public class Mqtt implements MqttCallback {
                     for (Map.Entry<String, Node> entry : children.entrySet()) {
                         String name = entry.getKey();
                         Node child = entry.getValue();
+                        if (child.getAction() != null) {
+                            continue;
+                        }
                         LOGGER.info("Restoring subscription for '{}'", name);
 
                         String topic = child.getValue().getString();
