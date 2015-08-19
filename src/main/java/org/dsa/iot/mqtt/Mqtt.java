@@ -30,7 +30,7 @@ public class Mqtt implements MqttCallback {
 
     private GuaranteedReceiver<MqttClient> clientReceiver;
 
-    public Mqtt(Node parent) throws MqttException {
+    public Mqtt(Node parent) {
         this.parent = parent;
         parent.setMetaData(this);
     }

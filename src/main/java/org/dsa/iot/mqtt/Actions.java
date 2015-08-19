@@ -8,7 +8,6 @@ import org.dsa.iot.dslink.node.actions.ActionResult;
 import org.dsa.iot.dslink.node.actions.Parameter;
 import org.dsa.iot.dslink.node.value.Value;
 import org.dsa.iot.dslink.node.value.ValueType;
-import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,7 +48,7 @@ public class Actions {
                     try {
                         Mqtt mqtt = new Mqtt(child.build());
                         mqtt.init();
-                    } catch (MqttException e) {
+                    } catch (RuntimeException e) {
                         LOGGER.warn("Error adding server", e);
                         node.removeChild(name);
                     }
