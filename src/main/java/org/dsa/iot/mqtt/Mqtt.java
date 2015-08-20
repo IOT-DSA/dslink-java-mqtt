@@ -1,13 +1,16 @@
 package org.dsa.iot.mqtt;
 
 import org.dsa.iot.commons.GuaranteedReceiver;
+import org.dsa.iot.dslink.link.Linkable;
 import org.dsa.iot.dslink.node.Node;
 import org.dsa.iot.dslink.node.NodeBuilder;
 import org.dsa.iot.dslink.node.NodeManager;
+import org.dsa.iot.dslink.node.SubscriptionManager;
 import org.dsa.iot.dslink.node.actions.Action;
 import org.dsa.iot.dslink.node.value.Value;
 import org.dsa.iot.dslink.node.value.ValueType;
 import org.dsa.iot.dslink.util.Objects;
+import org.dsa.iot.dslink.util.StringUtils;
 import org.dsa.iot.mqtt.utils.ClientReceiver;
 import org.eclipse.paho.client.mqttv3.*;
 import org.slf4j.Logger;
@@ -252,7 +255,7 @@ public class Mqtt implements MqttCallback {
         }
     }
 
-    public static void destroyTree(String topic, Node node) {
+    public void destroyTree(String topic, Node node) {
         if ("#".equals(topic) || "+".equals(topic)) {
             node.clearChildren();
             removeParent(node);
@@ -281,8 +284,26 @@ public class Mqtt implements MqttCallback {
                     }
                     break;
                 } else if (i + 1 >= split.length) {
-                    node = node.removeChild(topic);
-                    removeParent(node);
+                    final Node tmp = node.getChild(topic);
+                    if (hasSub(tmp)) {
+                        get(new Handler<MqttClient>() {
+                            @Override
+                            public void handle(MqttClient event) {
+                                String fullTopic = tmp.getPath();
+                                int length = data.getPath().length() + 1;
+                                fullTopic = fullTopic.substring(length);
+                                fullTopic = StringUtils.decodeName(fullTopic);
+                                try {
+                                    event.subscribe(fullTopic, 2);
+                                } catch (MqttException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            }
+                        });
+                    } else {
+                        node = node.removeChild(topic);
+                        removeParent(node);
+                    }
                     break;
                 } else {
                     node = node.getChild(topic);
@@ -294,7 +315,7 @@ public class Mqtt implements MqttCallback {
         }
     }
 
-    private static void removeParent(Node child) {
+    private void removeParent(Node child) {
         Node parent = child.getParent();
         if (parent != null && parent.getValue() == null) {
             Map<String, Node> children = parent.getChildren();
@@ -302,5 +323,14 @@ public class Mqtt implements MqttCallback {
                 parent.removeChild(child);
             }
         }
+    }
+
+    private boolean hasSub(Node node) {
+        Linkable link = node.getLink();
+        SubscriptionManager sm = null;
+        if (link != null) {
+            sm = link.getSubscriptionManager();
+        }
+        return sm != null && sm.hasValueSub(node);
     }
 }

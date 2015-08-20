@@ -15,15 +15,16 @@ public class MqttTest {
     public void destroyTree() {
         final NodeManager manager = new NodeManager(null, "node");
         Node data = manager.createRootNode("data").build();
+        final Mqtt mqtt = new Mqtt(data);
 
         Node node = data.createChild("a").build();
         node.createChild("b").build();
-        Mqtt.destroyTree("#", data);
+        mqtt.destroyTree("#", data);
         Assert.assertTrue(data.getChildren().isEmpty());
 
         node = data.createChild("a").build();
         node.createChild("b").build();
-        Mqtt.destroyTree("+", data);
+        mqtt.destroyTree("+", data);
         Assert.assertTrue(data.getChildren().isEmpty());
 
         data = manager.createRootNode("data").build();
@@ -36,7 +37,7 @@ public class MqttTest {
         final String pathB = "/data/a/b/2";
 
         manager.getNode(pathA);
-        Mqtt.destroyTree("/a/+/1", data);
+        mqtt.destroyTree("/a/+/1", data);
         manager.getNode(pathB);
 
         boolean exception = false;
@@ -47,7 +48,7 @@ public class MqttTest {
         }
         Assert.assertTrue(exception);
 
-        Mqtt.destroyTree("/a/#", data);
+        mqtt.destroyTree("/a/#", data);
         exception = false;
         try {
             manager.getNode(pathB);
