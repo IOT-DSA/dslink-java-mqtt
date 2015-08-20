@@ -87,6 +87,31 @@ public class Mqtt implements MqttCallback {
                 subscribe(name, topic, qos);
             }
         }
+
+        recursiveResubscribe(data.getChildren());
+    }
+
+    private void recursiveResubscribe(Map<String, Node> children) {
+        if (children == null) {
+            return;
+        }
+        for (final Node node : children.values()) {
+            get(new Handler<MqttClient>() {
+                @Override
+                public void handle(MqttClient event) {
+                    String fullTopic = node.getPath();
+                    int length = data.getPath().length() + 1;
+                    fullTopic = fullTopic.substring(length);
+                    fullTopic = StringUtils.decodeName(fullTopic);
+                    try {
+                        event.subscribe(fullTopic, 2);
+                    } catch (MqttException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            });
+            recursiveResubscribe(node.getChildren());
+        }
     }
 
     public void publish(final String topic,
