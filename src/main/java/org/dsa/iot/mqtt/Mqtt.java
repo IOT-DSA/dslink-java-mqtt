@@ -142,26 +142,26 @@ public class Mqtt implements MqttCallback {
     public void subscribe(final String name,
                           final String topic,
                           final int qos) {
+        if (subs.getChild(name) == null) {
+            NodeBuilder builder = subs.createChild(name);
+            builder.setValueType(ValueType.STRING);
+            builder.setValue(new Value(topic));
+            builder.setRoConfig("qos", new Value(qos));
+            Node node = builder.build();
+
+            builder = node.createChild("unsubscribe");
+            builder.setDisplayName("Unsubscribe");
+            builder.setSerializable(false);
+            Mqtt mqtt = Mqtt.this;
+            Action act = Actions.getUnsubscribeAction(mqtt, name);
+            builder.setAction(act);
+            builder.build();
+        }
         get(new Handler<MqttClient>() {
             @Override
             public void handle(MqttClient event) {
                 try {
                     event.subscribe(topic, qos);
-                    if (subs.getChild(name) == null) {
-                        NodeBuilder builder = subs.createChild(name);
-                        builder.setValueType(ValueType.STRING);
-                        builder.setValue(new Value(topic));
-                        builder.setRoConfig("qos", new Value(qos));
-                        Node node = builder.build();
-
-                        builder = node.createChild("unsubscribe");
-                        builder.setDisplayName("Unsubscribe");
-                        builder.setSerializable(false);
-                        Mqtt mqtt = Mqtt.this;
-                        Action act = Actions.getUnsubscribeAction(mqtt, name);
-                        builder.setAction(act);
-                        builder.build();
-                    }
                 } catch (MqttException e) {
                     throw new RuntimeException(e);
                 }
