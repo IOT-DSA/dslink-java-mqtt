@@ -145,7 +145,11 @@ public class Actions {
             }
         });
         a.addParameter(new Parameter("name", ValueType.STRING));
-        a.addParameter(new Parameter("topic", ValueType.STRING));
+        {
+            Parameter p = new Parameter("topic", ValueType.STRING);
+            p.setPlaceHolder("+/path/topics/#");
+            a.addParameter(p);
+        }
         a.addParameter(new Parameter("qos", ValueType.NUMBER, new Value(2)));
         return a;
     }
