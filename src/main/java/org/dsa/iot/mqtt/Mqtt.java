@@ -68,7 +68,13 @@ public class Mqtt implements MqttCallback {
     }
 
     protected void disconnect() {
-        clientReceiver.shutdown();
+        MqttClient client = clientReceiver.shutdown();
+        try {
+            if (client != null) {
+                client.close();
+            }
+        } catch (MqttException ignored) {
+        }
     }
 
     protected void restoreSubscriptions() {
