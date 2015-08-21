@@ -106,14 +106,23 @@ public class Actions {
         a.addParameter(new Parameter("value", ValueType.STRING));
         {
             Parameter p = new Parameter("qos", ValueType.NUMBER);
-            p.setDefaultValue(new Value(2));
+            p.setDefaultValue(new Value(0));
 
             String desc = "QoS ranges from 0-2";
-            desc += "\nQoS 0 delivers the message but is not acknowledged by the network";
-            desc += "\nQos 1 guarantees the network has the message but can be duplicated";
-            desc += "\nQos 2 guarantees the network has the message and receives it only once";
+            {
+                desc += "\n0: The message will be delivered once, ";
+                desc += "with no confirmation.";
+            }
+            {
+                desc += "\n1: The message will be delivered at least once, ";
+                desc += "with confirmation required.";
+            }
+            {
+                desc += "\n2: The broker/client will deliver the message ";
+                desc += "exactly once by using a four step handshake.";
+            }
             p.setDescription(desc);
-            a.addParameter(new Parameter("qos", ValueType.NUMBER, new Value(2)));
+            a.addParameter(p);
         }
         a.addParameter(new Parameter("retained", ValueType.BOOL, new Value(true)));
         return a;
