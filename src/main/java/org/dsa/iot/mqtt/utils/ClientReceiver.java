@@ -4,7 +4,7 @@ import org.dsa.iot.commons.GuaranteedReceiver;
 import org.dsa.iot.dslink.node.Node;
 import org.dsa.iot.dslink.node.value.Value;
 import org.dsa.iot.dslink.util.URLInfo;
-import org.eclipse.paho.client.mqttv3.MqttCallback;
+import org.dsa.iot.mqtt.Mqtt;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
@@ -20,9 +20,9 @@ public class ClientReceiver extends GuaranteedReceiver<MqttClient> {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClientReceiver.class);
 
     private final Node mqttNode;
-    private final MqttCallback callback;
+    private final Mqtt callback;
 
-    public ClientReceiver(Node node, MqttCallback callback) {
+    public ClientReceiver(Node node, Mqtt callback) {
         this.mqttNode = node;
         this.callback = callback;
     }
@@ -52,6 +52,7 @@ public class ClientReceiver extends GuaranteedReceiver<MqttClient> {
 
         client.setCallback(callback);
         client.connect(opts);
+        callback.setStatus(true);
         LOGGER.info("Opened connection to MQTT at {}", url);
         return client;
     }
@@ -64,6 +65,7 @@ public class ClientReceiver extends GuaranteedReceiver<MqttClient> {
             int code = ex.getReasonCode();
             if (code == MqttException.REASON_CODE_CLIENT_NOT_CONNECTED
                     || code == MqttException.REASON_CODE_CONNECTION_LOST) {
+                callback.setStatus(false);
                 LOGGER.error("Connection died ({})", code);
                 return true;
             }

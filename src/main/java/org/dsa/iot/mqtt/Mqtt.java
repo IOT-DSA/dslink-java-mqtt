@@ -2,12 +2,10 @@ package org.dsa.iot.mqtt;
 
 import org.dsa.iot.commons.GuaranteedReceiver;
 import org.dsa.iot.dslink.link.Linkable;
-import org.dsa.iot.dslink.node.Node;
-import org.dsa.iot.dslink.node.NodeBuilder;
-import org.dsa.iot.dslink.node.NodeManager;
-import org.dsa.iot.dslink.node.SubscriptionManager;
+import org.dsa.iot.dslink.node.*;
 import org.dsa.iot.dslink.node.actions.Action;
 import org.dsa.iot.dslink.node.value.Value;
+import org.dsa.iot.dslink.node.value.ValuePair;
 import org.dsa.iot.dslink.node.value.ValueType;
 import org.dsa.iot.dslink.util.Objects;
 import org.dsa.iot.dslink.util.StringUtils;
@@ -28,10 +26,15 @@ public class Mqtt implements MqttCallback {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Mqtt.class);
     private final Node parent;
-    private Node data;
+    private Node status;
     private Node subs;
+    private Node qos;
+
+    private final Object dataLock = new Object();
+    private Node data;
 
     private GuaranteedReceiver<MqttClient> clientReceiver;
+    private final Object receiverLock = new Object();
 
     public Mqtt(Node parent) {
         this.parent = parent;
@@ -39,7 +42,9 @@ public class Mqtt implements MqttCallback {
     }
 
     public void init() {
-        clientReceiver = new ClientReceiver(parent, this);
+        synchronized (receiverLock) {
+            clientReceiver = new ClientReceiver(parent, this);
+        }
 
         NodeBuilder child = parent.createChild("delete");
         child.setDisplayName("Delete");
@@ -56,7 +61,10 @@ public class Mqtt implements MqttCallback {
         child = parent.createChild("data");
         child.setDisplayName("Data");
         child.setSerializable(false);
-        data = child.build();
+        child.setRoConfig("preserve", new Value(true));
+        synchronized (dataLock) {
+            data = child.build();
+        }
 
         child = parent.createChild("subscriptions");
         child.setDisplayName("Subscriptions");
@@ -67,6 +75,43 @@ public class Mqtt implements MqttCallback {
         child.setAction(Actions.getSubscribeAction(this));
         child.setSerializable(false);
         child.build();
+
+        child = parent.createChild("qos");
+        child.setDisplayName("QoS");
+        child.setValueType(ValueType.makeEnum("0", "1", "2"));
+        child.setValue(new Value("0"));
+        child.setWritable(Writable.WRITE);
+        child.getListener().setValueHandler(new Handler<ValuePair>() {
+            @Override
+            public void handle(ValuePair event) {
+                int qos = getQos();
+                LOGGER.debug("Setting up MQTT server with new QoS of {}", qos);
+                disconnect();
+                destroyEverything(data);
+                synchronized (receiverLock) {
+                    clientReceiver = new ClientReceiver(parent, Mqtt.this);
+                }
+                restoreSubscriptions();
+            }
+        });
+        qos = child.build();
+
+        child = parent.createChild("status");
+        child.setDisplayName("Status");
+        child.setSerializable(false);
+        child.setValueType(ValueType.makeBool("Connected", "Disconnected"));
+        child.setValue(new Value(false));
+        status = child.build();
+    }
+
+    public void setStatus(boolean connected) {
+        if (status != null) {
+            status.setValue(new Value(connected));
+        }
+    }
+
+    protected int getQos() {
+        return Integer.parseInt(qos.getValue().getString());
     }
 
     protected void get(Handler<MqttClient> onClientReceived) {
@@ -74,12 +119,17 @@ public class Mqtt implements MqttCallback {
     }
 
     protected void disconnect() {
-        MqttClient client = clientReceiver.shutdown();
-        try {
-            if (client != null) {
-                client.close();
+        setStatus(false);
+        synchronized (receiverLock) {
+            MqttClient client = clientReceiver.shutdown();
+            try {
+                if (client != null) {
+                    client.setCallback(null);
+                    client.close();
+                }
+            } catch (Exception ignored) {
             }
-        } catch (MqttException ignored) {
+            clientReceiver = null;
         }
     }
 
@@ -95,46 +145,50 @@ public class Mqtt implements MqttCallback {
                 LOGGER.info("Restoring subscription for '{}'", name);
 
                 String topic = child.getValue().getString();
-                int qos = child.getRoConfig("qos").getNumber().intValue();
-                subscribe(name, topic, qos);
+                subscribe(name, topic);
             }
         }
 
-        recursiveResubscribe(data.getChildren());
+        synchronized (dataLock) {
+            recursiveResubscribe(data.getChildren());
+        }
     }
 
     private void recursiveResubscribe(Map<String, Node> children) {
         if (children == null) {
             return;
         }
+        final int qos = getQos();
         for (final Node node : children.values()) {
-            get(new Handler<MqttClient>() {
-                @Override
-                public void handle(MqttClient event) {
-                    String fullTopic = node.getPath();
-                    int length = data.getPath().length() + 1;
-                    fullTopic = fullTopic.substring(length);
-                    fullTopic = StringUtils.decodeName(fullTopic);
-                    try {
-                        event.subscribe(fullTopic, 2);
-                    } catch (MqttException e) {
-                        throw new RuntimeException(e);
+            if (hasSub(node)) {
+                get(new Handler<MqttClient>() {
+                    @Override
+                    public void handle(MqttClient event) {
+                        String fullTopic = node.getPath();
+                        int length = data.getPath().length() + 1;
+                        fullTopic = fullTopic.substring(length);
+                        fullTopic = StringUtils.decodeName(fullTopic);
+                        LOGGER.info("Restoring subscription for '{}'", fullTopic);
+                        try {
+                            event.subscribe(fullTopic, qos);
+                        } catch (MqttException e) {
+                            throw new RuntimeException(e);
+                        }
                     }
-                }
-            });
+                });
+            }
             recursiveResubscribe(node.getChildren());
         }
     }
 
     public void publish(final String topic,
                         String value,
-                        int qos,
                         boolean retained) {
         try {
             byte[] payload = value.getBytes("UTF-8");
             final MqttMessage msg = new MqttMessage();
             msg.setPayload(payload);
-            msg.setQos(qos);
+            msg.setQos(getQos());
             msg.setRetained(retained);
             get(new Handler<MqttClient>() {
                 @Override
@@ -152,13 +206,11 @@ public class Mqtt implements MqttCallback {
     }
 
     public void subscribe(final String name,
-                          final String topic,
-                          final int qos) {
+                          final String topic) {
         if (subs.getChild(name) == null) {
             NodeBuilder builder = subs.createChild(name);
             builder.setValueType(ValueType.STRING);
             builder.setValue(new Value(topic));
-            builder.setRoConfig("qos", new Value(qos));
             Node node = builder.build();
 
             builder = node.createChild("unsubscribe");
@@ -173,7 +225,7 @@ public class Mqtt implements MqttCallback {
             @Override
             public void handle(MqttClient event) {
                 try {
-                    event.subscribe(topic, qos);
+                    event.subscribe(topic, getQos());
                 } catch (MqttException e) {
                     throw new RuntimeException(e);
                 }
@@ -182,11 +234,13 @@ public class Mqtt implements MqttCallback {
     }
 
     public void unsubscribe(String name) {
+        final String topic;
         Node child = subs.removeChild(name);
         if (child == null) {
             return;
         }
-        final String topic = child.getValue().getString();
+        topic = child.getValue().getString();
+
         get(new Handler<MqttClient>() {
             @Override
             public void handle(MqttClient event) {
@@ -195,7 +249,9 @@ public class Mqtt implements MqttCallback {
                 } catch (MqttException e) {
                     throw new RuntimeException(e);
                 } finally {
-                    destroyTree(topic, data);
+                    synchronized (dataLock) {
+                        destroyTree(topic, data);
+                    }
                 }
             }
         });
@@ -208,7 +264,7 @@ public class Mqtt implements MqttCallback {
     }
 
     @Override
-    public synchronized void messageArrived(final String s,
+    public void messageArrived(final String s,
                                             final MqttMessage msg)
                                                     throws Exception {
         if (s.contains("//")) {
@@ -218,32 +274,124 @@ public class Mqtt implements MqttCallback {
         if (split.length <= 0) {
             return;
         }
-        ScheduledThreadPoolExecutor stpe = Objects.getDaemonThreadPool();
-        stpe.execute(new Runnable() {
-            @Override
-            public void run() {
-                String name = split[0];
-                NodeBuilder b = data.createChild(name);
-                b.setSerializable(false);
-                Node node = b.build();
-                node.setSerializable(false);
-                for (int i = 1; i < split.length; i++) {
-                    name = split[i];
-                    b = node.createChild(name);
-                    b.setSerializable(false);
-                    node = b.build();
+
+        String name = split[0];
+        NodeBuilder b = data.createChild(name);
+        b.setSerializable(false);
+        Node node = b.build();
+        node.setSerializable(false);
+        for (int i = 1; i < split.length; i++) {
+            name = split[i];
+            b = node.createChild(name);
+            b.setSerializable(false);
+            node = b.build();
+        }
+        node.setValueType(ValueType.STRING);
+        node.setValue(new Value(msg.toString()));
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace("Updating '{}' with '{}'", node.getPath(), msg);
+        }
+    }
+
+    @Override
+    public void deliveryComplete(IMqttDeliveryToken iMqttDeliveryToken) {
+    }
+
+    public void destroyTree(String topic, Node node) {
+        if ("#".equals(topic) || "+".equals(topic)) {
+            destroyEverything(node);
+        } else {
+            String[] split = NodeManager.splitPath(topic);
+            for (int i = 0; i < split.length; i++) {
+                topic = split[i];
+                if ("#".equals(topic)) {
+                    destroyEverything(node);
+                } else if ("+".equals(topic)) {
+                    destroyWildCardTree(node, split, i);
+                    break;
+                } else if (i + 1 >= split.length) {
+                    destroyIndividualNode(topic, node);
+                    break;
+                } else {
+                    node = node.getChild(topic);
+                    if (node == null) {
+                        break;
+                    }
                 }
-                node.setValueType(ValueType.STRING);
-                node.setValue(new Value(msg.toString()));
-                if (LOGGER.isTraceEnabled()) {
-                    LOGGER.trace("Updating '{}' with '{}'", node.getPath(), msg);
+            }
+        }
+    }
+
+    private void destroyEverything(Node node) {
+        if (hasSub(node)) {
+            destroyIndividualNode(node.getName(), node.getParent());
+            return;
+        }
+        Map<String, Node> children = node.getChildren();
+        if (children != null) {
+            for (Node n : children.values()) {
+                if (!hasSub(n)) {
+                    destroyEverything(n);
+                }
+            }
+        }
+        Value value = node.getRoConfig("preserve");
+        if (!(hasSub(node) || (value != null && value.getBool()))
+                && (children == null || children.size() <= 0)) {
+            node.getParent().removeChild(node);
+        }
+    }
+
+    private void destroyWildCardTree(Node node, String[] split, int i) {
+        Map<String, Node> children = node.getChildren();
+        if (children != null) {
+            StringBuilder b = new StringBuilder();
+            for (int x = ++i;;) {
+                b.append(split[x]);
+                if (++x < split.length) {
+                    b.append("/");
+                } else {
+                    break;
+                }
+            }
+            String built = b.toString();
+
+            for (Node child : children.values()) {
+                destroyTree(built, child);
+            }
+        }
+    }
+
+    private void destroyIndividualNode(String topic, Node node) {
+        final Node tmp = node.getChild(topic);
+        if (!hasSub(tmp)) {
+            node.removeChild(topic);
+            return;
+        }
+
+        get(new Handler<MqttClient>() {
+            @Override
+            public void handle(MqttClient event) {
+                String fullTopic = tmp.getPath();
+                int length = data.getPath().length() + 1;
+                fullTopic = fullTopic.substring(length);
+                fullTopic = StringUtils.decodeName(fullTopic);
+                try {
+                    event.subscribe(fullTopic, getQos());
+                } catch (MqttException e) {
+                    throw new RuntimeException(e);
                 }
             }
         });
     }
 
-    @Override
-    public void deliveryComplete(IMqttDeliveryToken iMqttDeliveryToken) {
+    private boolean hasSub(Node node) {
+        Linkable link = node.getLink();
+        SubscriptionManager sm = null;
+        if (link != null) {
+            sm = link.getSubscriptionManager();
+        }
+        return sm != null && sm.hasValueSub(node);
     }
 
     public static void init(Node superRoot) {
@@ -277,10 +425,10 @@ public class Mqtt implements MqttCallback {
                             for (Node node : subs.values()) {
                                 String name = node.getName();
                                 NodeBuilder b = node.createChild("unsubscribe");
-                                Action a = Actions.getUnsubscribeAction(mqtt, name);
-                                b.setAction(a);
                                 b.setSerializable(false);
                                 b.setDisplayName("Unsubscribe");
+                                Action a = Actions.getUnsubscribeAction(mqtt, name);
+                                b.setAction(a);
                                 b.build();
                             }
                         } catch (Exception e) {
@@ -290,84 +438,5 @@ public class Mqtt implements MqttCallback {
                 });
             }
         }
-    }
-
-    public void destroyTree(String topic, Node node) {
-        if ("#".equals(topic) || "+".equals(topic)) {
-            node.clearChildren();
-            removeParent(node);
-        } else {
-            String[] split = NodeManager.splitPath(topic);
-            for (int i = 0; i < split.length; i++) {
-                topic = split[i];
-                if ("#".equals(topic)) {
-                    destroyTree(topic, node);
-                } else if ("+".equals(topic)) {
-                    Map<String, Node> children = node.getChildren();
-                    if (children != null) {
-                        StringBuilder b = new StringBuilder();
-                        for (int x = ++i;;) {
-                            b.append(split[x]);
-                            if (++x < split.length) {
-                                b.append("/");
-                            } else {
-                                break;
-                            }
-                        }
-                        String built = b.toString();
-                        for (Node child : children.values()) {
-                            destroyTree(built, child);
-                        }
-                    }
-                    break;
-                } else if (i + 1 >= split.length) {
-                    final Node tmp = node.getChild(topic);
-                    if (hasSub(tmp)) {
-                        get(new Handler<MqttClient>() {
-                            @Override
-                            public void handle(MqttClient event) {
-                                String fullTopic = tmp.getPath();
-                                int length = data.getPath().length() + 1;
-                                fullTopic = fullTopic.substring(length);
-                                fullTopic = StringUtils.decodeName(fullTopic);
-                                try {
-                                    event.subscribe(fullTopic, 2);
-                                } catch (MqttException e) {
-                                    throw new RuntimeException(e);
-                                }
-                            }
-                        });
-                    } else {
-                        node = node.removeChild(topic);
-                        removeParent(node);
-                    }
-                    break;
-                } else {
-                    node = node.getChild(topic);
-                    if (node == null) {
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    private void removeParent(Node child) {
-        Node parent = child.getParent();
-        if (parent != null && parent.getValue() == null) {
-            Map<String, Node> children = parent.getChildren();
-            if (children == null || children.size() <= 1) {
-                parent.removeChild(child);
-            }
-        }
-    }
-
-    private boolean hasSub(Node node) {
-        Linkable link = node.getLink();
-        SubscriptionManager sm = null;
-        if (link != null) {
-            sm = link.getSubscriptionManager();
-        }
-        return sm != null && sm.hasValueSub(node);
     }
 }

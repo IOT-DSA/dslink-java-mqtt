@@ -8,7 +8,6 @@ import org.dsa.iot.dslink.node.actions.ActionResult;
 import org.dsa.iot.dslink.node.actions.Parameter;
 import org.dsa.iot.dslink.node.value.Value;
 import org.dsa.iot.dslink.node.value.ValueType;
-import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vertx.java.core.Handler;
@@ -91,39 +90,17 @@ public class Actions {
             public void handle(ActionResult event) {
                 Value vTopic = event.getParameter("topic", ValueType.STRING);
                 Value vValue = event.getParameter("value", ValueType.STRING);
-                Value vQos = event.getParameter("qos", ValueType.NUMBER);
                 Value vRetained = event.getParameter("retained", ValueType.BOOL);
 
                 String topic = vTopic.getString();
                 String value = vValue.getString();
-                int qos = vQos.getNumber().intValue();
                 boolean retained = vRetained.getBool();
 
-                mqtt.publish(topic, value, qos, retained);
+                mqtt.publish(topic, value, retained);
             }
         });
         a.addParameter(new Parameter("topic", ValueType.STRING));
         a.addParameter(new Parameter("value", ValueType.STRING));
-        {
-            Parameter p = new Parameter("qos", ValueType.NUMBER);
-            p.setDefaultValue(new Value(0));
-
-            String desc = "QoS ranges from 0-2";
-            {
-                desc += "\n0: The message will be delivered once, ";
-                desc += "with no confirmation.";
-            }
-            {
-                desc += "\n1: The message will be delivered at least once, ";
-                desc += "with confirmation required.";
-            }
-            {
-                desc += "\n2: The broker/client will deliver the message ";
-                desc += "exactly once by using a four step handshake.";
-            }
-            p.setDescription(desc);
-            a.addParameter(p);
-        }
         a.addParameter(new Parameter("retained", ValueType.BOOL, new Value(true)));
         return a;
     }
@@ -134,14 +111,10 @@ public class Actions {
             public void handle(ActionResult event) {
                 Value vName = event.getParameter("name", ValueType.STRING);
                 Value vTopic = event.getParameter("topic", ValueType.STRING);
-                Value vQos = event.getParameter("qos", ValueType.NUMBER);
 
                 String name = vName.getString();
                 String topic = vTopic.getString();
-                int qos = vQos.getNumber().intValue();
-                MqttMessage.validateQos(qos);
-
-                mqtt.subscribe(name, topic, qos);
+                mqtt.subscribe(name, topic);
             }
         });
         a.addParameter(new Parameter("name", ValueType.STRING));
@@ -150,7 +123,6 @@ public class Actions {
             p.setPlaceHolder("+/path/topics/#");
             a.addParameter(p);
         }
-        a.addParameter(new Parameter("qos", ValueType.NUMBER, new Value(2)));
         return a;
     }
 
