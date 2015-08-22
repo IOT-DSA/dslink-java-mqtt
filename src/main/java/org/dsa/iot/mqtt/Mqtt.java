@@ -42,7 +42,9 @@ public class Mqtt implements MqttCallback {
         clientReceiver = new ClientReceiver(parent, this);
 
         NodeBuilder child = parent.createChild("delete");
+        child.setDisplayName("Delete");
         child.setAction(Actions.getRemoveServerAction(this, parent));
+        child.setSerializable(false);
         child.build();
 
         child = parent.createChild("publish");
@@ -52,12 +54,16 @@ public class Mqtt implements MqttCallback {
         child.build();
 
         child = parent.createChild("data");
+        child.setDisplayName("Data");
+        child.setSerializable(false);
         data = child.build();
 
         child = parent.createChild("subscriptions");
+        child.setDisplayName("Subscriptions");
         subs = child.build();
 
         child = subs.createChild("subscribe");
+        child.setDisplayName("Subscribe");
         child.setAction(Actions.getSubscribeAction(this));
         child.setSerializable(false);
         child.build();
