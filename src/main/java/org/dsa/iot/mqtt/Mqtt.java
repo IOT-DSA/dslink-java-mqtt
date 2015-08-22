@@ -265,8 +265,7 @@ public class Mqtt implements MqttCallback {
 
     @Override
     public void messageArrived(final String s,
-                                            final MqttMessage msg)
-                                                    throws Exception {
+                                final MqttMessage msg) throws Exception {
         if (s.contains("//")) {
             return;
         }
@@ -288,6 +287,13 @@ public class Mqtt implements MqttCallback {
         }
         node.setValueType(ValueType.STRING);
         node.setValue(new Value(msg.toString()));
+        node.setWritable(Writable.WRITE);
+        node.getListener().setValueHandler(new Handler<ValuePair>() {
+            @Override
+            public void handle(ValuePair event) {
+                publish(s, event.getCurrent().toString(), true);
+            }
+        });
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace("Updating '{}' with '{}'", node.getPath(), msg);
         }
