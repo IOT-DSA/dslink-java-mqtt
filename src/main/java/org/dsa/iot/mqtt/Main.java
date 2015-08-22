@@ -13,6 +13,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vertx.java.core.Handler;
 
+import java.util.Map;
+
 /**
  * @author Samuel Grenier
  */
@@ -24,6 +26,23 @@ public class Main extends DSLinkHandler {
     @Override
     public boolean isResponder() {
         return true;
+    }
+
+    @Override
+    public void stop() {
+        if (dslink == null) {
+            return;
+        }
+        Node node = dslink.getNodeManager().getSuperRoot();
+        Map<String, Node> children = node.getChildren();
+        if (children != null) {
+            for (Node n : children.values()) {
+                Mqtt mqtt = n.getMetaData();
+                if (mqtt != null) {
+                    mqtt.disconnect();
+                }
+            }
+        }
     }
 
     @Override
