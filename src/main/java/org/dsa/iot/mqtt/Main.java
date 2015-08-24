@@ -69,7 +69,7 @@ public class Main extends DSLinkHandler {
             public void handle(MqttClient event) {
                 String topic = path.substring(node.getPath().length() + 5);
                 try {
-                    event.subscribe(topic, 2);
+                    event.subscribe(topic, mqtt.getQos());
                 } catch (MqttException e) {
                     throw new RuntimeException(e);
                 }
@@ -81,6 +81,17 @@ public class Main extends DSLinkHandler {
         n.setValueType(ValueType.STRING);
         n.setValue(new Value((String) null));
         return n;
+    }
+
+    @Override
+    public void onSetFail(final String path, final Value value) {
+        final String[] split = NodeManager.splitPath(path);
+
+        final NodeManager manager = dslink.getNodeManager();
+        final Node node = manager.getNode(split[0]).getNode();
+        final Mqtt mqtt = node.getMetaData();
+        String topic = path.substring(node.getPath().length() + 6);
+        mqtt.publish(topic, value.toString(), true);
     }
 
     public static void main(String[] args) {
