@@ -28,7 +28,6 @@ public class Mqtt implements MqttCallback {
     private final Node parent;
     private Node status;
     private Node subs;
-    private Node qos;
 
     private final Object dataLock = new Object();
     private Node data;
@@ -43,7 +42,7 @@ public class Mqtt implements MqttCallback {
 
     public void init() {
         synchronized (receiverLock) {
-            clientReceiver = new ClientReceiver(parent, this);
+            clientReceiver = new ClientReceiver(this);
         }
 
         NodeBuilder child = parent.createChild("delete");
@@ -76,32 +75,63 @@ public class Mqtt implements MqttCallback {
         child.setSerializable(false);
         child.build();
 
-        child = parent.createChild("qos");
-        child.setDisplayName("QoS");
-        child.setValueType(ValueType.makeEnum("0", "1", "2"));
-        child.setValue(new Value("0"));
-        child.setWritable(Writable.WRITE);
-        child.getListener().setValueHandler(new Handler<ValuePair>() {
-            @Override
-            public void handle(ValuePair event) {
-                int qos = getQos();
-                LOGGER.debug("Setting up MQTT server with new QoS of {}", qos);
-                disconnect();
-                destroyEverything(data);
-                synchronized (receiverLock) {
-                    clientReceiver = new ClientReceiver(parent, Mqtt.this);
-                }
-                restoreSubscriptions();
-            }
-        });
-        qos = child.build();
-
         child = parent.createChild("status");
         child.setDisplayName("Status");
         child.setSerializable(false);
         child.setValueType(ValueType.makeBool("Connected", "Disconnected"));
         child.setValue(new Value(false));
         status = child.build();
+
+        child = parent.createChild("editServer");
+        child.setDisplayName("Edit Server");
+        child.setSerializable(false);
+        child.setAction(Actions.getEditServerAction(this));
+        child.build();
+    }
+
+    public void edit(String user, char[] pass, String clientId, int qos) {
+        if (user == null) {
+            parent.removeRoConfig("user");
+            parent.setPassword(null);
+        } else {
+            parent.setRoConfig("user", new Value(user));
+            if (pass != null) {
+                parent.setPassword(pass);
+            }
+        }
+
+        parent.setRoConfig("clientId", new Value(clientId));
+        parent.setRoConfig("qos", new Value(qos));
+        disconnect();
+        destroyEverything(data);
+        synchronized (receiverLock) {
+            clientReceiver = new ClientReceiver(this);
+        }
+        restoreSubscriptions();
+    }
+
+    public String getUrl() {
+        return parent.getRoConfig("url").getString();
+    }
+
+    public String getClientId() {
+        return parent.getRoConfig("clientId").getString();
+    }
+
+    public String getUsername() {
+        Value vUser = parent.getRoConfig("user");
+        if (vUser != null) {
+            return vUser.getString();
+        }
+        return null;
+    }
+
+    public char[] getPassword() {
+        char[] password = parent.getPassword();
+        if (password != null) {
+            return password;
+        }
+        return null;
     }
 
     public void setStatus(boolean connected) {
@@ -111,7 +141,7 @@ public class Mqtt implements MqttCallback {
     }
 
     protected int getQos() {
-        return Integer.parseInt(qos.getValue().getString());
+        return parent.getRoConfig("qos").getNumber().intValue();
     }
 
     protected void get(Handler<MqttClient> onClientReceived) {

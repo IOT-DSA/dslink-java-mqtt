@@ -1,8 +1,6 @@
 package org.dsa.iot.mqtt.utils;
 
 import org.dsa.iot.commons.GuaranteedReceiver;
-import org.dsa.iot.dslink.node.Node;
-import org.dsa.iot.dslink.node.value.Value;
 import org.dsa.iot.dslink.util.URLInfo;
 import org.dsa.iot.mqtt.Mqtt;
 import org.eclipse.paho.client.mqttv3.MqttClient;
@@ -19,18 +17,17 @@ public class ClientReceiver extends GuaranteedReceiver<MqttClient> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ClientReceiver.class);
 
-    private final Node mqttNode;
     private final Mqtt callback;
 
-    public ClientReceiver(Node node, Mqtt callback) {
-        this.mqttNode = node;
+    public ClientReceiver(Mqtt callback) {
+        super(5);
         this.callback = callback;
     }
 
     @Override
     protected MqttClient instantiate() throws Exception {
-        String url = mqttNode.getRoConfig("url").getString();
-        String id = mqttNode.getRoConfig("clientId").getString();
+        String url = callback.getUrl();
+        String id = callback.getClientId();
         MqttClient client = new MqttClient(url, id, new MemoryPersistence());
 
         MqttConnectOptions opts = new MqttConnectOptions();
@@ -40,14 +37,14 @@ public class ClientReceiver extends GuaranteedReceiver<MqttClient> {
             opts.setSocketFactory(new InsecureSslSocketFactory());
         }
 
-        Value vUser = mqttNode.getRoConfig("user");
-        if (vUser != null) {
-            opts.setUserName(vUser.getString());
-        }
+        String username = callback.getUsername();
+        if (username != null) {
+            opts.setUserName(username);
 
-        char[] pass = mqttNode.getPassword();
-        if (pass != null) {
-            opts.setPassword(pass);
+            char[] pass = callback.getPassword();
+            if (pass != null) {
+                opts.setPassword(pass);
+            }
         }
 
         client.setCallback(callback);
