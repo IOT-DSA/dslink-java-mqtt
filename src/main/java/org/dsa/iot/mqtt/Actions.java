@@ -95,10 +95,13 @@ public class Actions {
                 Value vUser = params.get("username");
                 if (vUser != null) {
                     username = vUser.getString();
-
-                    Value vPass = params.get("password");
-                    if (vPass != null) {
-                        password = vPass.getString().toCharArray();
+                    if (username.isEmpty()) {
+                        username = null;
+                    } else {
+                        Value vPass = params.get("password");
+                        if (vPass != null) {
+                            password = vPass.getString().toCharArray();
+                        }
                     }
                 }
 
