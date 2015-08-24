@@ -105,10 +105,11 @@ public class Actions {
                     }
                 }
 
+                String url = params.get("url").getString();
                 String clientId = params.get("clientId").getString();
                 String sQos = params.get("qos").getString();
                 int qos = Integer.parseInt(sQos);
-                mqtt.edit(username, password, clientId, qos);
+                mqtt.edit(url, username, password, clientId, qos);
             }
         };
         {

@@ -89,7 +89,10 @@ public class Mqtt implements MqttCallback {
         child.build();
     }
 
-    public void edit(String user, char[] pass, String clientId, int qos) {
+    public void edit(String url,
+                     String user,
+                     char[] pass,
+                     String clientId, int qos) {
         if (user == null) {
             parent.removeRoConfig("user");
             parent.setPassword(null);
@@ -100,6 +103,7 @@ public class Mqtt implements MqttCallback {
             }
         }
 
+        parent.setRoConfig("url", new Value(url));
         parent.setRoConfig("clientId", new Value(clientId));
         parent.setRoConfig("qos", new Value(qos));
         disconnect();
