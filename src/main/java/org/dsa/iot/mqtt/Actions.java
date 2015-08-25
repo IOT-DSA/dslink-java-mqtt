@@ -75,7 +75,12 @@ public class Actions {
         }
         a.addParameter(new Parameter("username", vt));
         a.addParameter(new Parameter("password", vt));
-        a.addParameter(new Parameter("clientId", vt).setPlaceHolder("dsa123"));
+        {
+            Parameter p = new Parameter("clientId", vt);
+            String desc = "The client ID must always be unique to the server";
+            p.setDescription(desc);
+            a.addParameter(p);
+        }
         {
             ValueType type = ValueType.makeEnum("0", "1", "2");
             Parameter p = new Parameter("qos", type);
@@ -145,6 +150,8 @@ public class Actions {
             ParameterInfo info = new ParameterInfo("clientId", ValueType.STRING);
             info.setDefaultValue(new Value(mqtt.getClientId()));
             info.setPersistent(true);
+            String desc = "The client ID must always be unique to the server";
+            info.setDescription(desc);
             a.addParameter(info);
         }
         {
