@@ -5,6 +5,8 @@
 A DSLink that works with MQTT. More information about MQTT can be
 located at <http://mqtt.org/>
 
+[![IMAGE ALT TEXT HERE](http://img.youtube.com/vi/kmZljxH9r3I/0.jpg)](http://www.youtube.com/watch?v=kmZljxH9r3I)
+
 ## Distributions
 
 Distributions can be ran independent of Gradle and anywhere Java is installed.
