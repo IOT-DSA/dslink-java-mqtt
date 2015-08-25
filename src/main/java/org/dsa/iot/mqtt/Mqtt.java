@@ -29,8 +29,6 @@ public class Mqtt implements MqttCallback {
     private final Node parent;
     private Node status;
     private Node subs;
-
-    private final Object dataLock = new Object();
     private Node data;
 
     private GuaranteedReceiver<MqttClient> clientReceiver;
@@ -62,11 +60,9 @@ public class Mqtt implements MqttCallback {
         child.setDisplayName("Data");
         child.setSerializable(false);
         child.setRoConfig("preserve", new Value(true));
-        synchronized (dataLock) {
-            data = child.build();
-            child = data.createChild("clean");
-        }
+        data = child.build();
 
+        child = data.createChild("clean");
         child.setSerializable(false);
         child.setDisplayName("Clean");
         child.setRoConfig("preserve", new Value(true));
@@ -74,9 +70,7 @@ public class Mqtt implements MqttCallback {
                         new Handler<ActionResult>() {
             @Override
             public void handle(ActionResult event) {
-                synchronized (dataLock) {
-                    destroyEverything(data);
-                }
+                destroyEverything(data);
                 restoreSubscriptions();
             }
         }));
@@ -200,9 +194,7 @@ public class Mqtt implements MqttCallback {
             }
         }
 
-        synchronized (dataLock) {
-            recursiveResubscribe(data.getChildren());
-        }
+        recursiveResubscribe(data.getChildren());
     }
 
     private void recursiveResubscribe(Map<String, Node> children) {
@@ -300,9 +292,7 @@ public class Mqtt implements MqttCallback {
                 } catch (MqttException e) {
                     throw new RuntimeException(e);
                 } finally {
-                    synchronized (dataLock) {
-                        destroyTree(topic, data);
-                    }
+                    destroyTree(topic, data);
                 }
             }
         });
