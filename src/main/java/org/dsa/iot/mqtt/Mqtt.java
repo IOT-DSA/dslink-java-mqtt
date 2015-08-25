@@ -311,15 +311,14 @@ public class Mqtt implements MqttCallback {
         String name = split[0];
         NodeBuilder b = data.createChild(name);
         b.setSerializable(false);
-        Node node = b.build();
-        node.setSerializable(false);
+        b.build();
         for (int i = 1; i < split.length; i++) {
             name = split[i];
             b = b.build().createChild(name);
             b.setSerializable(false);
         }
         b.setValueType(ValueType.STRING);
-        node = b.build();
+        Node node = b.build();
         node.setValue(new Value(msg.toString()));
         node.setWritable(Writable.WRITE);
         node.getListener().setValueHandler(new Handler<ValuePair>() {
@@ -406,6 +405,19 @@ public class Mqtt implements MqttCallback {
         final Node tmp = node.getChild(topic);
         if (!hasSub(tmp)) {
             node.removeChild(topic);
+            while (node != null) {
+                if (hasSub(node) || node.getChildren().size() > 0) {
+                    break;
+                }
+
+                Value value = node.getRoConfig("preserve");
+                if (value != null && value.getBool()) {
+                    break;
+                }
+
+                node.getParent().removeChild(node);
+                node = node.getParent();
+            }
             return;
         }
 
