@@ -79,6 +79,11 @@ public class Actions {
         {
             ValueType type = ValueType.makeEnum("0", "1", "2");
             Parameter p = new Parameter("qos", type);
+            String desc =
+                    "0: The broker/client will deliver the message once, with no confirmation.\n" +
+                    "1: The broker/client will deliver the message at least once, with confirmation required.\n" +
+                    "2: The broker/client will deliver the message exactly once by using a four step handshake.";
+            p.setDescription(desc);
             a.addParameter(p);
         }
         return a;
@@ -147,6 +152,13 @@ public class Actions {
             ParameterInfo info = new ParameterInfo("qos", type);
             info.setDefaultValue(new Value(String.valueOf(mqtt.getQos())));
             info.setPersistent(true);
+
+            String desc =
+                    "0: The broker/client will deliver the message once, with no confirmation.\n" +
+                    "1: The broker/client will deliver the message at least once, with confirmation required.\n" +
+                    "2: The broker/client will deliver the message exactly once by using a four step handshake.";
+            info.setDescription(desc);
+
             a.addParameter(info);
         }
         return a;
