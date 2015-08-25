@@ -4,6 +4,7 @@ import org.dsa.iot.commons.GuaranteedReceiver;
 import org.dsa.iot.dslink.link.Linkable;
 import org.dsa.iot.dslink.node.*;
 import org.dsa.iot.dslink.node.actions.Action;
+import org.dsa.iot.dslink.node.actions.ActionResult;
 import org.dsa.iot.dslink.node.value.Value;
 import org.dsa.iot.dslink.node.value.ValuePair;
 import org.dsa.iot.dslink.node.value.ValueType;
@@ -63,7 +64,23 @@ public class Mqtt implements MqttCallback {
         child.setRoConfig("preserve", new Value(true));
         synchronized (dataLock) {
             data = child.build();
+            child = data.createChild("clean");
         }
+
+        child.setSerializable(false);
+        child.setDisplayName("Clean");
+        child.setRoConfig("preserve", new Value(true));
+        child.setAction(new Action(Permission.WRITE,
+                        new Handler<ActionResult>() {
+            @Override
+            public void handle(ActionResult event) {
+                synchronized (dataLock) {
+                    destroyEverything(data);
+                }
+                restoreSubscriptions();
+            }
+        }));
+        child.build();
 
         child = parent.createChild("subscriptions");
         child.setDisplayName("Subscriptions");
@@ -319,6 +336,8 @@ public class Mqtt implements MqttCallback {
         }
         b.setValueType(ValueType.STRING);
         Node node = b.build();
+        // Extra assurance in case a parent never had its type set
+        node.setValueType(ValueType.STRING);
         node.setValue(new Value(msg.toString()));
         node.setWritable(Writable.WRITE);
         node.getListener().setValueHandler(new Handler<ValuePair>() {
