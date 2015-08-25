@@ -315,11 +315,11 @@ public class Mqtt implements MqttCallback {
         node.setSerializable(false);
         for (int i = 1; i < split.length; i++) {
             name = split[i];
-            b = node.createChild(name);
+            b = b.build().createChild(name);
             b.setSerializable(false);
-            node = b.build();
         }
-        node.setValueType(ValueType.STRING);
+        b.setValueType(ValueType.STRING);
+        node = b.build();
         node.setValue(new Value(msg.toString()));
         node.setWritable(Writable.WRITE);
         node.getListener().setValueHandler(new Handler<ValuePair>() {
