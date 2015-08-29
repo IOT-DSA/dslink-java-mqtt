@@ -447,6 +447,9 @@ public class Mqtt implements MqttCallback {
     }
 
     private boolean hasSub(Node node) {
+        if (node == null) {
+            return false;
+        }
         Linkable link = node.getLink();
         SubscriptionManager sm = null;
         if (link != null) {
