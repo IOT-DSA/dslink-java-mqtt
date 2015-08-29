@@ -305,8 +305,8 @@ public class Mqtt implements MqttCallback {
     }
 
     @Override
-    public void messageArrived(final String s,
-                                final MqttMessage msg) throws Exception {
+    public synchronized void messageArrived(final String s,
+                                            final MqttMessage msg) throws Exception {
         if (s.contains("//")) {
             return;
         }
@@ -333,6 +333,7 @@ public class Mqtt implements MqttCallback {
         node.getListener().setValueHandler(new Handler<ValuePair>() {
             @Override
             public void handle(ValuePair event) {
+                event.setReject(true);
                 publish(s, event.getCurrent().toString(), true);
             }
         });
