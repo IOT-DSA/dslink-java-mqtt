@@ -10,6 +10,9 @@ import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.net.ssl.SSLSocketFactory;
+import java.io.File;
+
 /**
  * @author Samuel Grenier
  */
@@ -34,7 +37,21 @@ public class ClientReceiver extends GuaranteedReceiver<MqttClient> {
         opts.setMaxInflight(1000);
         URLInfo info = URLInfo.parse(url);
         if ("ssl".equals(info.protocol)) {
-            opts.setSocketFactory(new InsecureSslSocketFactory());
+            File rPath = null;
+            File cPath = null;
+            File pkPath = null;
+            {
+                String a = callback.getCaPath();
+                String b = callback.getCertPath();
+                String c = callback.getPrivateKeyPath();
+                if (a != null && b != null && c != null) {
+                    rPath = new File(a);
+                    cPath = new File(b);
+                    pkPath = new File(c);
+                }
+            }
+            SSLSocketFactory f = new SslSocketFactoryImpl(rPath, cPath, pkPath);
+            opts.setSocketFactory(f);
         }
 
         String username = callback.getUsername();

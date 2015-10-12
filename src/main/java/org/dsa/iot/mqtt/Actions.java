@@ -9,9 +9,9 @@ import org.dsa.iot.dslink.node.actions.ActionResult;
 import org.dsa.iot.dslink.node.actions.Parameter;
 import org.dsa.iot.dslink.node.value.Value;
 import org.dsa.iot.dslink.node.value.ValueType;
+import org.dsa.iot.dslink.util.handler.Handler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.dsa.iot.dslink.util.handler.Handler;
 
 import java.util.Map;
 
@@ -36,6 +36,14 @@ public class Actions {
                 Value vPass = event.getParameter("password");
                 Value vQos = event.getParameter("qos", vt);
 
+                Value rootCaPath = event.getParameter("rootCaPath");
+                Value certPath = null;
+                Value privKeyPath = null;
+                if (rootCaPath != null) {
+                    certPath = event.getParameter("certPath", vt);
+                    privKeyPath = event.getParameter("privateKeyPath", vt);
+                }
+
                 String name = vName.getString();
                 if (!node.hasChild(name)) {
                     NodeBuilder child = node.createChild(name);
@@ -52,6 +60,12 @@ public class Actions {
                     {
                         vQos = new Value(Integer.parseInt(vQos.getString()));
                         child.setRoConfig("qos", vQos);
+                    }
+
+                    if (rootCaPath != null) {
+                        child.setRoConfig("caPath", rootCaPath);
+                        child.setRoConfig("certPath", certPath);
+                        child.setRoConfig("privKeyPath", privKeyPath);
                     }
 
                     try {
@@ -85,10 +99,28 @@ public class Actions {
             ValueType type = ValueType.makeEnum("0", "1", "2");
             Parameter p = new Parameter("qos", type);
             String desc =
-                    "0: The broker/client will deliver the message once, with no confirmation.\n" +
-                    "1: The broker/client will deliver the message at least once, with confirmation required.\n" +
-                    "2: The broker/client will deliver the message exactly once by using a four step handshake.";
+                "0: The broker/client will deliver the message once, with no confirmation.\n" +
+                "1: The broker/client will deliver the message at least once, with confirmation required.\n" +
+                "2: The broker/client will deliver the message exactly once by using a four step handshake.";
             p.setDescription(desc);
+            a.addParameter(p);
+        }
+        {
+            Parameter p = new Parameter("rootCaPath", vt);
+            p.setPlaceHolder("Optional");
+            p.setDescription("Path to the root CA certificate in PEM format");
+            a.addParameter(p);
+        }
+        {
+            Parameter p = new Parameter("certPath", vt);
+            p.setPlaceHolder("Required if CA path is specified");
+            p.setDescription("Path to the client certificate in PEM format");
+            a.addParameter(p);
+        }
+        {
+            Parameter p = new Parameter("privateKeyPath", vt);
+            p.setPlaceHolder("Required if CA path is specified");
+            p.setDescription("Path to the private key in PEM format");
             a.addParameter(p);
         }
         return a;
@@ -101,6 +133,10 @@ public class Actions {
                                Map<String, Value> params) {
                 String username = null;
                 char[] password = null;
+
+                String caPath = null;
+                String certPath = null;
+                String privKeyPath = null;
 
                 Value vUser = params.get("username");
                 if (vUser != null) {
@@ -115,11 +151,23 @@ public class Actions {
                     }
                 }
 
+                Value vCaPath = params.get("rootCaPath");
+                Value vCertPath = params.get("certPath");
+                Value vPrivKeyPath = params.get("privateKeyPath");
+                if (!(vCaPath == null
+                        || vCertPath == null
+                        || vPrivKeyPath == null)) {
+                    caPath = vCaPath.getString();
+                    certPath = vCertPath.getString();
+                    privKeyPath = vPrivKeyPath.getString();
+                }
+
                 String url = params.get("url").getString();
                 String clientId = params.get("clientId").getString();
                 String sQos = params.get("qos").getString();
                 int qos = Integer.parseInt(sQos);
-                mqtt.edit(url, username, password, clientId, qos);
+                mqtt.edit(url, username, password,
+                        clientId, qos, caPath, certPath, privKeyPath);
             }
         };
         {
@@ -161,12 +209,45 @@ public class Actions {
             info.setPersistent(true);
 
             String desc =
-                    "0: The broker/client will deliver the message once, with no confirmation.\n" +
-                    "1: The broker/client will deliver the message at least once, with confirmation required.\n" +
-                    "2: The broker/client will deliver the message exactly once by using a four step handshake.";
+                "0: The broker/client will deliver the message once, with no confirmation.\n" +
+                "1: The broker/client will deliver the message at least once, with confirmation required.\n" +
+                "2: The broker/client will deliver the message exactly once by using a four step handshake.";
             info.setDescription(desc);
 
             a.addParameter(info);
+        }
+        {
+            ParameterInfo p = new ParameterInfo("rootCaPath", ValueType.STRING);
+            String s = mqtt.getCaPath();
+            if (s != null) {
+                p.setDefaultValue(new Value(s));
+            }
+            p.setPersistent(true);
+            p.setPlaceHolder("Optional");
+            p.setDescription("Path to the root CA certificate in PEM format");
+            a.addParameter(p);
+        }
+        {
+            ParameterInfo p = new ParameterInfo("certPath", ValueType.STRING);
+            String s = mqtt.getCertPath();
+            if (s != null) {
+                p.setDefaultValue(new Value(s));
+            }
+            p.setPersistent(true);
+            p.setPlaceHolder("Required if CA path is specified");
+            p.setDescription("Path to the client certificate in PEM format");
+            a.addParameter(p);
+        }
+        {
+            ParameterInfo p = new ParameterInfo("privateKeyPath", ValueType.STRING);
+            String s = mqtt.getPrivateKeyPath();
+            if (s != null) {
+                p.setDefaultValue(new Value(s));
+            }
+            p.setPersistent(true);
+            p.setPlaceHolder("Required if CA path is specified");
+            p.setDescription("Path to the private key in PEM format");
+            a.addParameter(p);
         }
         return a;
     }

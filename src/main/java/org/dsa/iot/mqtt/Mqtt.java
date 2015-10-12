@@ -10,11 +10,11 @@ import org.dsa.iot.dslink.node.value.ValuePair;
 import org.dsa.iot.dslink.node.value.ValueType;
 import org.dsa.iot.dslink.util.Objects;
 import org.dsa.iot.dslink.util.StringUtils;
+import org.dsa.iot.dslink.util.handler.Handler;
 import org.dsa.iot.mqtt.utils.ClientReceiver;
 import org.eclipse.paho.client.mqttv3.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.dsa.iot.dslink.util.handler.Handler;
 
 import java.io.UnsupportedEncodingException;
 import java.util.Map;
@@ -103,7 +103,8 @@ public class Mqtt implements MqttCallback {
     public void edit(String url,
                      String user,
                      char[] pass,
-                     String clientId, int qos) {
+                     String clientId, int qos,
+                     String caFile, String certFile, String privKeyFile) {
         if (user == null) {
             parent.removeRoConfig("user");
             parent.setPassword(null);
@@ -117,6 +118,15 @@ public class Mqtt implements MqttCallback {
         parent.setRoConfig("url", new Value(url));
         parent.setRoConfig("clientId", new Value(clientId));
         parent.setRoConfig("qos", new Value(qos));
+        if (!(caFile == null || certFile == null || privKeyFile == null)) {
+            parent.setRoConfig("caPath", new Value(caFile));
+            parent.setRoConfig("certPath", new Value(certFile));
+            parent.setRoConfig("privKeyPath", new Value(privKeyFile));
+        } else {
+            parent.removeRoConfig("caPath");
+            parent.removeRoConfig("certPath");
+            parent.removeRoConfig("privKeyPath");
+        }
         disconnect();
         destroyEverything(data);
         synchronized (receiverLock) {
@@ -147,6 +157,21 @@ public class Mqtt implements MqttCallback {
             return password;
         }
         return null;
+    }
+
+    public String getCaPath() {
+        Value v = parent.getRoConfig("caPath");
+        return v == null ? null : v.getString();
+    }
+
+    public String getCertPath() {
+        Value v = parent.getRoConfig("certPath");
+        return v == null ? null : v.getString();
+    }
+
+    public String getPrivateKeyPath() {
+        Value v = parent.getRoConfig("privKeyPath");
+        return v == null ? null : v.getString();
     }
 
     public void setStatus(boolean connected) {
