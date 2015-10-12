@@ -292,7 +292,7 @@ public class Actions {
         });
         a.addParameter(new Parameter("topic", ValueType.STRING));
         a.addParameter(new Parameter("value", ValueType.STRING));
-        a.addParameter(new Parameter("retained", ValueType.BOOL, new Value(true)));
+        a.addParameter(new Parameter("retained", ValueType.BOOL));
         return a;
     }
 

@@ -359,7 +359,7 @@ public class Mqtt implements MqttCallback {
             @Override
             public void handle(ValuePair event) {
                 event.setReject(true);
-                publish(s, event.getCurrent().toString(), true);
+                publish(s, event.getCurrent().toString(), false);
             }
         });
         if (LOGGER.isTraceEnabled()) {

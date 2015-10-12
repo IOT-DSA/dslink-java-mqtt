@@ -7,11 +7,11 @@ import org.dsa.iot.dslink.node.Node;
 import org.dsa.iot.dslink.node.NodeManager;
 import org.dsa.iot.dslink.node.value.Value;
 import org.dsa.iot.dslink.node.value.ValueType;
+import org.dsa.iot.dslink.util.handler.Handler;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.dsa.iot.dslink.util.handler.Handler;
 
 import java.util.Map;
 
@@ -91,7 +91,7 @@ public class Main extends DSLinkHandler {
         final Node node = manager.getNode(split[0]).getNode();
         final Mqtt mqtt = node.getMetaData();
         String topic = path.substring(node.getPath().length() + 6);
-        mqtt.publish(topic, value.toString(), true);
+        mqtt.publish(topic, value.toString(), false);
     }
 
     public static void main(String[] args) {
