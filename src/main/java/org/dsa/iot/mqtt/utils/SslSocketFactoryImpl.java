@@ -8,10 +8,12 @@ import org.bouncycastle.openssl.PEMException;
 import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
-import org.dsa.iot.dslink.util.FileUtils;
 
 import javax.net.ssl.*;
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.security.KeyPair;
@@ -31,9 +33,9 @@ public class SslSocketFactoryImpl extends SSLSocketFactory {
 
     private final SSLContext context;
 
-    public SslSocketFactoryImpl(File caCert,
-                                File sslCert,
-                                File sslPrivKey) {
+    public SslSocketFactoryImpl(String caCert,
+                                String sslCert,
+                                String sslPrivKey) {
         try {
             KeyManagerFactory kmf = null;
             TrustManagerFactory tmf = null;
@@ -163,10 +165,10 @@ public class SslSocketFactoryImpl extends SSLSocketFactory {
         return c.getCertificate(holder);
     }
 
-    public static Object read(File file) throws IOException {
+    public static Object read(String string) throws IOException {
         PEMParser parser;
         {
-            byte[] bytes = FileUtils.readAllBytes(file);
+            byte[] bytes = string.getBytes(CharsetUtil.UTF_8);
             InputStream in = new ByteArrayInputStream(bytes);
             InputStreamReader isr = new InputStreamReader(in, CharsetUtil.UTF_8);
             parser = new PEMParser(isr);

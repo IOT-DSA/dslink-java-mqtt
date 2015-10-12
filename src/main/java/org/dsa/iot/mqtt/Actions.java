@@ -6,6 +6,7 @@ import org.dsa.iot.dslink.node.NodeBuilder;
 import org.dsa.iot.dslink.node.Permission;
 import org.dsa.iot.dslink.node.actions.Action;
 import org.dsa.iot.dslink.node.actions.ActionResult;
+import org.dsa.iot.dslink.node.actions.EditorType;
 import org.dsa.iot.dslink.node.actions.Parameter;
 import org.dsa.iot.dslink.node.value.Value;
 import org.dsa.iot.dslink.node.value.ValueType;
@@ -36,12 +37,12 @@ public class Actions {
                 Value vPass = event.getParameter("password");
                 Value vQos = event.getParameter("qos", vt);
 
-                Value rootCaPath = event.getParameter("rootCaPath");
+                Value rootCaPath = event.getParameter("rootCa");
                 Value certPath = null;
                 Value privKeyPath = null;
                 if (rootCaPath != null) {
-                    certPath = event.getParameter("certPath", vt);
-                    privKeyPath = event.getParameter("privateKeyPath", vt);
+                    certPath = event.getParameter("cert", vt);
+                    privKeyPath = event.getParameter("privateKey", vt);
                 }
 
                 String name = vName.getString();
@@ -63,9 +64,9 @@ public class Actions {
                     }
 
                     if (rootCaPath != null) {
-                        child.setRoConfig("caPath", rootCaPath);
-                        child.setRoConfig("certPath", certPath);
-                        child.setRoConfig("privKeyPath", privKeyPath);
+                        child.setRoConfig("ca", rootCaPath);
+                        child.setRoConfig("cert", certPath);
+                        child.setRoConfig("privKey", privKeyPath);
                     }
 
                     try {
@@ -106,21 +107,24 @@ public class Actions {
             a.addParameter(p);
         }
         {
-            Parameter p = new Parameter("rootCaPath", vt);
+            Parameter p = new Parameter("rootCa", vt);
             p.setPlaceHolder("Optional");
-            p.setDescription("Path to the root CA certificate in PEM format");
+            p.setDescription("Root CA certificate in PEM format");
+            p.setEditorType(EditorType.TEXT_AREA);
             a.addParameter(p);
         }
         {
-            Parameter p = new Parameter("certPath", vt);
-            p.setPlaceHolder("Required if CA path is specified");
-            p.setDescription("Path to the client certificate in PEM format");
+            Parameter p = new Parameter("cert", vt);
+            p.setPlaceHolder("Required if CA is specified");
+            p.setDescription("Client certificate in PEM format");
+            p.setEditorType(EditorType.TEXT_AREA);
             a.addParameter(p);
         }
         {
-            Parameter p = new Parameter("privateKeyPath", vt);
-            p.setPlaceHolder("Required if CA path is specified");
-            p.setDescription("Path to the private key in PEM format");
+            Parameter p = new Parameter("privateKey", vt);
+            p.setPlaceHolder("Required if CA is specified");
+            p.setDescription("Private key in PEM format");
+            p.setEditorType(EditorType.TEXT_AREA);
             a.addParameter(p);
         }
         return a;
@@ -134,9 +138,9 @@ public class Actions {
                 String username = null;
                 char[] password = null;
 
-                String caPath = null;
-                String certPath = null;
-                String privKeyPath = null;
+                String ca = null;
+                String cert = null;
+                String privKey = null;
 
                 Value vUser = params.get("username");
                 if (vUser != null) {
@@ -151,15 +155,15 @@ public class Actions {
                     }
                 }
 
-                Value vCaPath = params.get("rootCaPath");
-                Value vCertPath = params.get("certPath");
-                Value vPrivKeyPath = params.get("privateKeyPath");
-                if (!(vCaPath == null
-                        || vCertPath == null
-                        || vPrivKeyPath == null)) {
-                    caPath = vCaPath.getString();
-                    certPath = vCertPath.getString();
-                    privKeyPath = vPrivKeyPath.getString();
+                Value vCa = params.get("rootCa");
+                Value vCert = params.get("cert");
+                Value vPrivKey = params.get("privateKey");
+                if (!(vCa == null
+                        || vCert == null
+                        || vPrivKey == null)) {
+                    ca = vCa.getString();
+                    cert = vCert.getString();
+                    privKey = vPrivKey.getString();
                 }
 
                 String url = params.get("url").getString();
@@ -167,7 +171,7 @@ public class Actions {
                 String sQos = params.get("qos").getString();
                 int qos = Integer.parseInt(sQos);
                 mqtt.edit(url, username, password,
-                        clientId, qos, caPath, certPath, privKeyPath);
+                        clientId, qos, ca, cert, privKey);
             }
         };
         {
@@ -217,36 +221,40 @@ public class Actions {
             a.addParameter(info);
         }
         {
-            ParameterInfo p = new ParameterInfo("rootCaPath", ValueType.STRING);
-            String s = mqtt.getCaPath();
+            ParameterInfo p = new ParameterInfo("rootCa", ValueType.STRING);
+            String s = mqtt.getCa();
             if (s != null) {
                 p.setDefaultValue(new Value(s));
             }
+            p.setOptional(true);
             p.setPersistent(true);
-            p.setPlaceHolder("Optional");
-            p.setDescription("Path to the root CA certificate in PEM format");
+            p.setDescription("Optional path to the root CA certificate in PEM format");
+            p.setEditorType(EditorType.TEXT_AREA);
             a.addParameter(p);
         }
         {
-            ParameterInfo p = new ParameterInfo("certPath", ValueType.STRING);
-            String s = mqtt.getCertPath();
+            ParameterInfo p = new ParameterInfo("cert", ValueType.STRING);
+            String s = mqtt.getCert();
             if (s != null) {
                 p.setDefaultValue(new Value(s));
             }
+            p.setOptional(true);
             p.setPersistent(true);
-            p.setPlaceHolder("Required if CA path is specified");
-            p.setDescription("Path to the client certificate in PEM format");
+            p.setDescription("Required if CA is specified. Client certificate in PEM format");
+            p.setEditorType(EditorType.TEXT_AREA);
             a.addParameter(p);
         }
         {
-            ParameterInfo p = new ParameterInfo("privateKeyPath", ValueType.STRING);
-            String s = mqtt.getPrivateKeyPath();
+            ParameterInfo p = new ParameterInfo("privateKey", ValueType.STRING);
+            String s = mqtt.getPrivateKey();
             if (s != null) {
                 p.setDefaultValue(new Value(s));
             }
+            p.setOptional(true);
             p.setPersistent(true);
             p.setPlaceHolder("Required if CA path is specified");
             p.setDescription("Path to the private key in PEM format");
+            p.setEditorType(EditorType.TEXT_AREA);
             a.addParameter(p);
         }
         return a;

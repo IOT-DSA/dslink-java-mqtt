@@ -119,13 +119,13 @@ public class Mqtt implements MqttCallback {
         parent.setRoConfig("clientId", new Value(clientId));
         parent.setRoConfig("qos", new Value(qos));
         if (!(caFile == null || certFile == null || privKeyFile == null)) {
-            parent.setRoConfig("caPath", new Value(caFile));
-            parent.setRoConfig("certPath", new Value(certFile));
-            parent.setRoConfig("privKeyPath", new Value(privKeyFile));
+            parent.setRoConfig("ca", new Value(caFile));
+            parent.setRoConfig("cert", new Value(certFile));
+            parent.setRoConfig("privKey", new Value(privKeyFile));
         } else {
-            parent.removeRoConfig("caPath");
-            parent.removeRoConfig("certPath");
-            parent.removeRoConfig("privKeyPath");
+            parent.removeRoConfig("ca");
+            parent.removeRoConfig("cert");
+            parent.removeRoConfig("privKey");
         }
         disconnect();
         destroyEverything(data);
@@ -159,18 +159,18 @@ public class Mqtt implements MqttCallback {
         return null;
     }
 
-    public String getCaPath() {
-        Value v = parent.getRoConfig("caPath");
+    public String getCa() {
+        Value v = parent.getRoConfig("ca");
         return v == null ? null : v.getString();
     }
 
-    public String getCertPath() {
-        Value v = parent.getRoConfig("certPath");
+    public String getCert() {
+        Value v = parent.getRoConfig("cert");
         return v == null ? null : v.getString();
     }
 
-    public String getPrivateKeyPath() {
-        Value v = parent.getRoConfig("privKeyPath");
+    public String getPrivateKey() {
+        Value v = parent.getRoConfig("privKey");
         return v == null ? null : v.getString();
     }
 

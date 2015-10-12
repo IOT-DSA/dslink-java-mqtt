@@ -11,7 +11,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLSocketFactory;
-import java.io.File;
 
 /**
  * @author Samuel Grenier
@@ -37,20 +36,20 @@ public class ClientReceiver extends GuaranteedReceiver<MqttClient> {
         opts.setMaxInflight(1000);
         URLInfo info = URLInfo.parse(url);
         if ("ssl".equals(info.protocol)) {
-            File rPath = null;
-            File cPath = null;
-            File pkPath = null;
+            String ro = null;
+            String cl = null;
+            String pk = null;
             {
-                String a = callback.getCaPath();
-                String b = callback.getCertPath();
-                String c = callback.getPrivateKeyPath();
+                String a = callback.getCa();
+                String b = callback.getCert();
+                String c = callback.getPrivateKey();
                 if (a != null && b != null && c != null) {
-                    rPath = new File(a);
-                    cPath = new File(b);
-                    pkPath = new File(c);
+                    ro = a;
+                    cl = b;
+                    pk = c;
                 }
             }
-            SSLSocketFactory f = new SslSocketFactoryImpl(rPath, cPath, pkPath);
+            SSLSocketFactory f = new SslSocketFactoryImpl(ro, cl, pk);
             opts.setSocketFactory(f);
         }
 
