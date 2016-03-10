@@ -497,7 +497,8 @@ public class Mqtt implements MqttCallback {
             Map<String, Node> rootChildren = superRoot.getChildren();
             ScheduledThreadPoolExecutor stpe = Objects.getDaemonThreadPool();
             for (final Node child : rootChildren.values()) {
-                if (child.getAction() != null) {
+                if (child.getAction() != null
+                        || child.getWritable() != null) {
                     continue;
                 }
                 stpe.execute(new Runnable() {

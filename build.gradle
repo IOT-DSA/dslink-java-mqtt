@@ -15,6 +15,9 @@ repositories {
     maven {
         url 'https://repo.eclipse.org/content/repositories/paho-snapshots/'
     }
+    maven {
+        url 'http://dl.bintray.com/andsel/maven'
+    }
 }
  
 dependencies {
@@ -22,6 +25,11 @@ dependencies {
     compile 'org.iot-dsa:commons:0.14.1'
     compile 'org.bouncycastle:bcpkix-jdk15on:1.52'
     compile 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.0.3-SNAPSHOT'
+    compile ('io.moquette:moquette-broker:0.8.1') {
+        exclude group: "io.netty"
+        exclude group: "log4j"
+        exclude group: "org.slf4j"
+    }
 
     testCompile 'junit:junit:4.12'
 }

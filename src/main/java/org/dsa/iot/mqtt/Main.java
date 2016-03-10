@@ -21,6 +21,7 @@ import java.util.Map;
 public class Main extends DSLinkHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
+    private Broker broker;
     private DSLink dslink;
 
     @Override
@@ -47,8 +48,11 @@ public class Main extends DSLinkHandler {
 
     @Override
     public void onResponderInitialized(DSLink link) {
+        Node root = link.getNodeManager().getSuperRoot();
+
         dslink = link;
-        Mqtt.init(link.getNodeManager().getSuperRoot());
+        broker = Broker.init(root);
+        Mqtt.init(root);
         LOGGER.info("Initialized");
     }
 
