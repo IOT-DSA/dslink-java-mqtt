@@ -31,6 +31,9 @@ public class Main extends DSLinkHandler {
 
     @Override
     public void stop() {
+        if (broker != null) {
+            broker.stop();
+        }
         if (dslink == null) {
             return;
         }
