@@ -340,12 +340,22 @@ public class Mqtt implements MqttCallback {
             return;
         }
 
-        String name = split[0];
-        NodeBuilder b = data.createChild(name);
+        //Create a zero node if there is a leading slash
+        NodeBuilder b;
+        int offset;
+        if (s.startsWith("/")) {
+            b = data.createChild("%2f");
+            offset = 0;
+        } else {
+            b = data.createChild(split[0]);
+            offset = 1;
+        }
+
         b.setSerializable(false);
         b.build();
-        for (int i = 1; i < split.length; i++) {
-            name = split[i];
+
+        for (int i = offset; i < split.length; i++) {
+            String name = split[i];
             b = b.build().createChild(name);
             b.setSerializable(false);
         }
