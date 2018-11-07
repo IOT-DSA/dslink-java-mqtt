@@ -1,11 +1,10 @@
 apply plugin: 'application'
-apply plugin: 'findbugs'
-apply plugin: 'java'
+apply plugin: 'java-library'
 
 mainClassName = 'org.dsa.iot.mqtt.Main'
 sourceCompatibility = 1.7
 targetCompatibility = 1.7
-version = '0.0.1-SNAPSHOT'
+version = '0.0.2'
 
 repositories {
     mavenCentral()
@@ -13,25 +12,22 @@ repositories {
         url 'https://oss.sonatype.org/content/repositories/snapshots/'
     }
     maven {
-        url 'https://repo.eclipse.org/content/repositories/paho-snapshots/'
-    }
-    maven {
         url 'http://dl.bintray.com/andsel/maven'
     }
 }
  
 dependencies {
-    compile 'org.iot-dsa:dslink:0.15.0'
-    compile 'org.iot-dsa:commons:0.15.0'
-    compile 'org.bouncycastle:bcpkix-jdk15on:1.52'
-    compile 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.0.3-SNAPSHOT'
-    compile ('io.moquette:moquette-broker:0.8.1') {
+    implementation 'org.iot-dsa:dslink:0.20.1'
+    implementation 'org.iot-dsa:commons:0.20.1'
+    implementation 'org.bouncycastle:bcpkix-jdk15on:1.60'
+    implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.0'
+    implementation ('io.moquette:moquette-broker:0.11') {
         exclude group: "io.netty"
         exclude group: "log4j"
         exclude group: "org.slf4j"
     }
 
-    testCompile 'junit:junit:4.12'
+    testImplementation 'junit:junit:4.12'
 }
 
 run {
@@ -39,11 +35,8 @@ run {
     workingDir project.buildDir
 }
 
-tasks.withType(FindBugs) {
-    reports {
-        xml.enabled = false
-        html.enabled = true
-    }
-}
-
 applicationDistribution.from new File(project.projectDir, "/dslink.json")
+
+wrapper {
+    gradleVersion = '4.10.2'
+}
