@@ -508,13 +508,15 @@ public class Mqtt implements MqttCallback {
             ScheduledThreadPoolExecutor stpe = Objects.getDaemonThreadPool();
             for (final Node child : rootChildren.values()) {
                 if (child.getAction() != null
-                        || child.getWritable() != null) {
+                    || child.getWritable() != null 
+		    || child.isHidden()) {
                     continue;
                 }
                 stpe.execute(new Runnable() {
                     @Override
                     public void run() {
                         try {
+			    LOGGER.info("Restoring connection to server '{}'", child.getName() );
                             Mqtt mqtt = new Mqtt(child);
                             mqtt.init();
 
