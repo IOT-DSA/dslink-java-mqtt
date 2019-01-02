@@ -11,6 +11,8 @@ import org.dsa.iot.dslink.node.value.Value;
 import org.dsa.iot.dslink.node.value.ValuePair;
 import org.dsa.iot.dslink.node.value.ValueType;
 import org.dsa.iot.dslink.util.handler.Handler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Properties;
@@ -19,6 +21,8 @@ import java.util.Properties;
  * @author Samuel Grenier
  */
 public class Broker {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(Mqtt.class);
 
     private Server server;
 
@@ -49,17 +53,17 @@ public class Broker {
     public static Broker init(Node root) {
         final Broker broker = new Broker();
 
-        Value enabled;
-        {
+        Node n = root.getChild("brokerEnabled");
+        if ( n == null ) {
             NodeBuilder b = root.createChild("brokerEnabled");
             b.setDisplayName("Broker Enabled");
             b.setValueType(ValueType.BOOL);
             b.setWritable(Writable.CONFIG);
             b.setValue(new Value(false));
-            Node n = b.build();
-            enabled = n.getValue();
+            n = b.build();
+        }
 
-            n.getListener().setValueHandler(new Handler<ValuePair>() {
+        n.getListener().setValueHandler(new Handler<ValuePair>() {
                 @Override
                 public void handle(ValuePair event) {
                     Value v = event.getCurrent();
@@ -69,10 +73,10 @@ public class Broker {
                         broker.stop();
                     }
                 }
-            });
-        }
+        });
 
-        if (enabled.getBool()) {
+        if (n.getValue().getBool()) {
+            LOGGER.info("Restoring broker" );
             broker.start();
         }
         return broker;
