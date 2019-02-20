@@ -35,6 +35,7 @@ public class Actions {
                 Value vClientId = event.getParameter("clientId", vt);
                 Value vUser = event.getParameter("username");
                 Value vPass = event.getParameter("password");
+                Value vCleanSession = event.getParameter("cleanSession");
                 Value vQos = event.getParameter("qos", vt);
 
                 Value rootCaPath = event.getParameter("rootCa");
@@ -54,6 +55,10 @@ public class Actions {
 
                     if (vPass != null) {
                         child.setPassword(vPass.getString().toCharArray());
+                    }
+
+                    if(vCleanSession != null) {
+                        child.setRoConfig("cleanSession", vCleanSession);
                     }
 
                     child.setRoConfig("url", vUrl);
@@ -90,6 +95,7 @@ public class Actions {
         }
         a.addParameter(new Parameter("username", vt));
         a.addParameter(new Parameter("password", vt));
+        a.addParameter(new Parameter("cleanSession", ValueType.BOOL));
         {
             Parameter p = new Parameter("clientId", vt);
             String desc = "The client ID must always be unique to the server";
@@ -137,6 +143,7 @@ public class Actions {
                                Map<String, Value> params) {
                 String username = null;
                 char[] password = null;
+                boolean cleanSession = true;
 
                 String ca = null;
                 String cert = null;
@@ -155,6 +162,11 @@ public class Actions {
                     }
                 }
 
+                Value vCleanSession = params.get("cleanSession");
+                if(vCleanSession != null) {
+                    cleanSession = vCleanSession.getBool();
+                }
+
                 Value vCa = params.get("rootCa");
                 Value vCert = params.get("cert");
                 Value vPrivKey = params.get("privateKey");
@@ -170,7 +182,7 @@ public class Actions {
                 String clientId = params.get("clientId").getString();
                 String sQos = params.get("qos").getString();
                 int qos = Integer.parseInt(sQos);
-                mqtt.edit(url, username, password,
+                mqtt.edit(url, username, password, cleanSession,
                         clientId, qos, ca, cert, privKey);
             }
         };
@@ -196,6 +208,12 @@ public class Actions {
             info.setPersistent(false);
             info.setOptional(true);
             info.setPlaceHolder("Leave empty to prevent change");
+            a.addParameter(info);
+        }
+        {
+            ParameterInfo info = new ParameterInfo("cleanSession", ValueType.BOOL);
+            info.setDefaultValue(new Value(mqtt.getCleanSession()));
+            info.setPersistent(true);
             a.addParameter(info);
         }
         {
