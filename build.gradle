@@ -4,7 +4,7 @@ apply plugin: 'java-library'
 mainClassName = 'org.dsa.iot.mqtt.Main'
 sourceCompatibility = 1.7
 targetCompatibility = 1.7
-version = '0.1.0'
+version = '0.2.0'
 
 repositories {
     mavenCentral()
@@ -38,5 +38,5 @@ run {
 applicationDistribution.from new File(project.projectDir, "/dslink.json")
 
 wrapper {
-    gradleVersion = '4.10.2'
+    gradleVersion = '5.2'
 }
