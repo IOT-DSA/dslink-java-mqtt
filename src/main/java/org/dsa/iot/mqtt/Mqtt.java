@@ -103,6 +103,7 @@ public class Mqtt implements MqttCallback {
     public void edit(String url,
                      String user,
                      char[] pass,
+                     boolean cleanSession,
                      String clientId, int qos,
                      String caFile, String certFile, String privKeyFile) {
         if (user == null) {
@@ -115,6 +116,7 @@ public class Mqtt implements MqttCallback {
             }
         }
 
+        parent.setRoConfig("cleanSession", new Value(cleanSession));
         parent.setRoConfig("url", new Value(url));
         parent.setRoConfig("clientId", new Value(clientId));
         parent.setRoConfig("qos", new Value(qos));
@@ -178,6 +180,11 @@ public class Mqtt implements MqttCallback {
         if (status != null) {
             status.setValue(new Value(connected));
         }
+    }
+
+    public boolean getCleanSession() {
+        Value v = parent.getRoConfig("cleanSession");
+        return v == null ? true : v.getBool();
     }
 
     protected int getQos() {

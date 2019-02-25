@@ -33,6 +33,7 @@ public class ClientReceiver extends GuaranteedReceiver<MqttClient> {
         MqttClient client = new MqttClient(url, id, new MemoryPersistence());
 
         MqttConnectOptions opts = new MqttConnectOptions();
+        opts.setCleanSession(callback.getCleanSession());
         opts.setMaxInflight(1000);
         URLInfo info = URLInfo.parse(url);
         if ("ssl".equals(info.protocol)) {
